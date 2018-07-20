@@ -4,11 +4,21 @@ public class DatabaseColumn {
     private String dbColName;
     private String dbColType;
     private Long pickListTableId;
+    private boolean excelColumnDataCleanup;
 
-    public DatabaseColumn(String dbColName, String dbColType, Long pickListTableId) {
+    public DatabaseColumn(String dbColName, String dbColType, Long pickListTableId, boolean excelColumnDataCleanup) {
 	this.dbColName = dbColName;
 	this.dbColType = dbColType;
 	this.pickListTableId = pickListTableId;
+	this.excelColumnDataCleanup = excelColumnDataCleanup;
+    }
+
+    public boolean isExcelColumnDataCleanup() {
+	return excelColumnDataCleanup;
+    }
+
+    public void setExcelColumnDataCleanup(boolean excelColumnDataCleanup) {
+	this.excelColumnDataCleanup = excelColumnDataCleanup;
     }
 
     public String getDbColName() {

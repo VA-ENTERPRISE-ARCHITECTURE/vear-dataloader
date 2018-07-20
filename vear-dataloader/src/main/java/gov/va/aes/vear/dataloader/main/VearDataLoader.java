@@ -25,9 +25,9 @@ public class VearDataLoader {
     public void process() {
 	try {
 	    Collection<TableAndColumnMappingInfo> tableMappingInfo = dataMappingExcelReader
-		    .readMappingFile("mapping.xlsx");
+		    .readMappingFile("C:\\Development\\docs\\projects\\RV\\RV_mapping.xlsx");
 	    processDataFile(
-		    "C:\\va_ea_dev\\workspace\\va_aes\\vear-riskvision-etl-processor\\src\\main\\resources\\data.xlsx",
+		    "C:\\Development\\docs\\projects\\RV\\EO System Inventory for VASI Reporting - May 2018.xlsx",
 		    tableMappingInfo);
 	} catch (Exception e) {
 	    e.printStackTrace();
@@ -37,45 +37,24 @@ public class VearDataLoader {
     public void processDataFile(final String dataFile, final Collection<TableAndColumnMappingInfo> tableMappingInfo)
 	    throws FileNotFoundException, IOException {
 
-	try {
-	    List<Map<String, Object>> excelRecords = excelDataReader.readExcelData(dataFile, tableMappingInfo);
+	List<Map<String, Object>> excelRecords = excelDataReader.readExcelData(dataFile, tableMappingInfo);
 
-	    cleanupExcelRecords(excelRecords, tableMappingInfo);
-
-	    for (Map<String, Object> excelRecord : excelRecords) {
-
-		for (TableAndColumnMappingInfo tableAndColumnMappingInfo : tableMappingInfo) {
-
-		    Map<String, Object> dbRecord = vearDatabaseService.getDBRecord(this, excelRecord,
-			    tableAndColumnMappingInfo);
-
-		    if (dbRecord != null) { // record exists so update recrod in DB
-			vearDatabaseService.processDbRecordUpdate(this, excelRecord, tableAndColumnMappingInfo);
-		    } else { // No record in DB Insert New record.
-			vearDatabaseService.processDbRecordInsert(this, excelRecord, tableAndColumnMappingInfo);
-		    }
-		}
-
-	    }
-	} catch (Exception e) {
-	    throw e;
-
-	}
-
-    }
-
-    private void cleanupExcelRecords(List<Map<String, Object>> excelRecords,
-	    Collection<TableAndColumnMappingInfo> tableMappingInfo) {
-	// TODO cleanup column data
 	for (Map<String, Object> excelRecord : excelRecords) {
 
 	    for (TableAndColumnMappingInfo tableAndColumnMappingInfo : tableMappingInfo) {
 
-		// iterate columns where 'ExcelColumnDataCleanUp' column boolean value is 'Yes';
-		// perform cleanup html tags using Jsoup
+		Map<String, Object> dbRecord = vearDatabaseService.getDBRecord(this, excelRecord,
+			tableAndColumnMappingInfo);
+
+		if (dbRecord != null) { // record exists so update recrod in DB
+		    vearDatabaseService.processDbRecordUpdate(this, excelRecord, tableAndColumnMappingInfo);
+		} else { // No record in DB Insert New record.
+		    vearDatabaseService.processDbRecordInsert(this, excelRecord, tableAndColumnMappingInfo);
+		}
 	    }
 
 	}
+
     }
 
 }

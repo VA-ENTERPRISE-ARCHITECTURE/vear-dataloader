@@ -6,6 +6,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -21,7 +22,9 @@ import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.jsoup.Jsoup;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -35,7 +38,7 @@ public class ExcelDataReader {
     @Autowired
     PickListDao pickListDao;
 
-    private Map<Long, Map<String, String>> pickListDataReverseMap = new HashMap<>();
+    private Map<Long, Map<String, Object>> pickListDataReverseMap = new HashMap<>();
 
     public List<Map<String, Object>> readExcelData(final String dataFile,
 	    final Collection<TableAndColumnMappingInfo> tableMappingInfo) throws FileNotFoundException, IOException {
@@ -65,8 +68,16 @@ public class ExcelDataReader {
 		if (excelColNamesMap.containsKey(headerName)) {
 
 		    DatabaseColumn dbColumn = excelColNamesMap.get(headerName);
+		    System.out.println("Reading Cell: " + headerName + " - type: " + dbColumn.getDbColType());
 		    Object valueObj = getValueAsObject(cell, dbColumn);
-		    excelRecord.put(headerName, valueObj);
+
+		    if (dbColumn.isExcelColumnDataCleanup()) {
+			String cleanedUpValue = cleanupValue((String) valueObj);
+			excelRecord.put(headerName, cleanedUpValue);
+		    } else {
+			excelRecord.put(headerName, valueObj);
+		    }
+
 		}
 	    }
 	    excelRecords.add(excelRecord);
@@ -74,6 +85,11 @@ public class ExcelDataReader {
 	workbook.close();
 	inputStream.close();
 	return excelRecords;
+    }
+
+    private String cleanupValue(String valueObj) {
+	// TODO Auto-generated method stub
+	return valueObj != null ? Jsoup.parse(valueObj).text() : null;
     }
 
     private Object getValueAsObject(Cell cell, DatabaseColumn dbColumn) {
@@ -85,7 +101,17 @@ public class ExcelDataReader {
 	} else if (dbColumn.getDbColType().equals("NUMBER")) {
 	    return new BigDecimal(df.formatCellValue(cell));
 	} else if (dbColumn.getDbColType().equals("DATE")) {
-	    return new Timestamp(cell.getDateCellValue().getTime());
+	    if (cell.getCellType() == XSSFCell.CELL_TYPE_STRING) {
+		String dateStr = getCellValueAsString(cell);
+		try {
+		    return new Timestamp(new SimpleDateFormat("dd/MM/yyyy").parse(dateStr).getTime());
+		} catch (ParseException e) {
+		    return null;
+		}
+	    } else {
+		return new Timestamp(cell.getDateCellValue().getTime());
+	    }
+
 	} else if (dbColumn.getDbColType().equals("PICKLIST")) {
 	    return getPickListDataKey(getCellValueAsString(cell), dbColumn.getPickListTableId());
 	}
@@ -94,7 +120,7 @@ public class ExcelDataReader {
 
     private Object getPickListDataKey(String cellValueAsString, Long pickListTableId) {
 	// TODO Auto-generated method stub
-	Map<String, String> pickListDataReveseMap = pickListDataReverseMap.get(pickListTableId);
+	Map<String, Object> pickListDataReveseMap = pickListDataReverseMap.get(pickListTableId);
 	if (pickListDataReveseMap == null) {
 	    pickListDataReveseMap = populatePickListData(pickListTableId);
 	}
@@ -102,12 +128,12 @@ public class ExcelDataReader {
 
     }
 
-    private Map<String, String> populatePickListData(Long pickListTableId) {
+    private Map<String, Object> populatePickListData(Long pickListTableId) {
 	// TODO Auto-generated method stub
 	List<Map<String, Object>> pickListData = pickListDao.getPickListData(pickListTableId);
-	Map<String, String> reverseMap = new HashMap<>();
+	Map<String, Object> reverseMap = new HashMap<>();
 	for (Map<String, Object> record : pickListData) {
-	    reverseMap.put((String) record.get("DESCRIPTION"), (String) record.get("OPTION_ID"));
+	    reverseMap.put((String) record.get("DESCRIPTION"), record.get("OPTION_ID"));
 	}
 	pickListDataReverseMap.put(pickListTableId, reverseMap);
 	return reverseMap;

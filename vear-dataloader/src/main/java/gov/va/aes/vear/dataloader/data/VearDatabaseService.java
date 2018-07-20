@@ -48,7 +48,8 @@ public class VearDatabaseService {
 	sql = sql + colNamesSQL + valuesSQLStr;
 	// PK loop
 	System.out.println("DB INSERT SQL :" + sql);
-	jdbcTemplate.update(sql, insertParams);
+	System.out.println("DB INSERT PARAMS :" + insertParams.toString());
+	// jdbcTemplate.update(sql, insertParams);
     }
 
     public void processDbRecordUpdate(VearDataLoader vearDataLoader, Map<String, Object> excelRecord,
@@ -76,9 +77,10 @@ public class VearDatabaseService {
 
 	}
 	sql = sql + whereSQL;
-	jdbcTemplate.update(sql, updateParams);
+	// jdbcTemplate.update(sql, updateParams);
 
 	System.out.println("DB UPDATE SQL :" + sql);
+	System.out.println("DB UPDATE PARAMS :" + updateParams.toString());
     }
 
     public Map<String, Object> getDBRecord(VearDataLoader vearDataLoader, Map<String, Object> excelRecord,
@@ -98,23 +100,37 @@ public class VearDatabaseService {
 
 	}
 	String whereSQL = null;
+	boolean foundAllPKValues = true;
 	for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getPkColumnMappings().entrySet()) {
-	    if (whereSQL == null) {
-		whereSQL = " where " + mapping.getValue().getDbColName() + " =  ?";
-		selectWhereParams.add(excelRecord.get(mapping.getKey()));
+	    Object param = excelRecord.get(mapping.getKey());
+	    String columnName = mapping.getValue().getDbColName();
+	    if (param != null) {
+		System.out.println(
+			"Column : " + columnName + " Value: " + param + " Type: " + param.getClass().getName());
 	    } else {
-		whereSQL = " and " + mapping.getValue().getDbColName() + " =  ?";
-		selectWhereParams.add(excelRecord.get(mapping.getKey()));
+		System.out.println("Column : " + columnName + " Value: " + param);
+		foundAllPKValues = false;
+	    }
+	    if (whereSQL == null) {
+		whereSQL = " where " + columnName + " =  ?";
+		selectWhereParams.add(param);
+	    } else {
+		whereSQL = " and " + columnName + " =  ?";
+		selectWhereParams.add(param);
 	    }
 
 	}
+	if (!foundAllPKValues)
+	    return null; // Cannot get DB record when Primary Key value is missing
 
 	String sql = "select  " + colNamesSQL + " from " + tableAndColumnMappingInfo.getTableName() + whereSQL;
 
-	// Use SQL and Params to execute Query using template.qureyForObject method
-	dbRecord = jdbcTemplate.queryForMap(sql, selectWhereParams);
-
 	System.out.println("DB Select SQL :" + sql);
+	System.out.println("DB Select SQL :" + selectWhereParams);
+
+	// Use SQL and Params to execute Query using template.qureyForObject method
+	dbRecord = jdbcTemplate.queryForMap(sql, selectWhereParams.toArray(new Object[selectWhereParams.size()]));
+
 	return dbRecord;
     }
 

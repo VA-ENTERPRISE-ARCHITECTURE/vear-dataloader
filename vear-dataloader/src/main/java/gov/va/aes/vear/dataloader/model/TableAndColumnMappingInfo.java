@@ -42,12 +42,14 @@ public class TableAndColumnMappingInfo implements Serializable {
 	this.pkColumnMappings = pkColumnMappings;
     }
 
-    public void addColumnMapping(final String csvColumnName, String dbColName, String dbColType, Long pickListTableId) {
-	this.columnMappings.put(csvColumnName, new DatabaseColumn(dbColName, dbColType, pickListTableId));
+    public void addColumnMapping(final String csvColumnName, String dbColName, String dbColType, Long pickListTableId,
+	    boolean excelColumnDataCleanup) {
+	this.columnMappings.put(csvColumnName,
+		new DatabaseColumn(dbColName, dbColType, pickListTableId, excelColumnDataCleanup));
     }
 
     public void addPkColumnMapping(final String csvColumnName, String dbColName, String dbColType) {
-	this.pkColumnMappings.put(csvColumnName, new DatabaseColumn(dbColName, dbColType, null));
+	this.pkColumnMappings.put(csvColumnName, new DatabaseColumn(dbColName, dbColType, null, false));
     }
 
 }

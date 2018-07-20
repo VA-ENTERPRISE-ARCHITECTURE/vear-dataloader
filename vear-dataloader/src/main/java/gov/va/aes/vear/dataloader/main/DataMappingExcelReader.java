@@ -1,5 +1,6 @@
 package gov.va.aes.vear.dataloader.main;
 
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.HashMap;
@@ -21,7 +22,7 @@ public class DataMappingExcelReader {
     public Collection<TableAndColumnMappingInfo> readMappingFile(final String fileName) throws Exception {
 	Map<String, TableAndColumnMappingInfo> result = new HashMap<>();
 	try {
-	    InputStream inputStream = DataMappingExcelReader.class.getClassLoader().getResourceAsStream(fileName);
+	    InputStream inputStream = new FileInputStream(fileName);
 	    Workbook workbook = new XSSFWorkbook(inputStream);
 	    Sheet firstSheet = workbook.getSheetAt(0);
 	    Iterator<Row> iterator = firstSheet.iterator();
@@ -36,15 +37,18 @@ public class DataMappingExcelReader {
 		String tableColName = cellIterator.next().getStringCellValue();
 		String tableColDataType = cellIterator.next().getStringCellValue();
 		Boolean isPkCol = cellIterator.next().getBooleanCellValue();
-		String pickListTableIdCellValue = cellIterator.next().getStringCellValue();
-		Long pickListTableId = pickListTableIdCellValue != null ? Long.valueOf(pickListTableIdCellValue) : null;
+		double pickListTableIdCellValue = cellIterator.next().getNumericCellValue();
+		Long pickListTableId = pickListTableIdCellValue == 0 ? null
+			: Long.valueOf((long) pickListTableIdCellValue);
+
+		Boolean isExcelColumnDataCleanup = cellIterator.next().getBooleanCellValue();
 		TableAndColumnMappingInfo tableAndColumnMappingInfo = result.get(tablename);
 		if (tableAndColumnMappingInfo == null) {
 		    tableAndColumnMappingInfo = new TableAndColumnMappingInfo();
 		    tableAndColumnMappingInfo.setTableName(tablename);
 		}
 		tableAndColumnMappingInfo.addColumnMapping(excelColumnaName, tableColName, tableColDataType,
-			pickListTableId);
+			pickListTableId, isExcelColumnDataCleanup);
 		if (isPkCol != null && Boolean.valueOf(isPkCol)) {
 		    tableAndColumnMappingInfo.addPkColumnMapping(excelColumnaName, tableColName, tableColDataType);
 		}
