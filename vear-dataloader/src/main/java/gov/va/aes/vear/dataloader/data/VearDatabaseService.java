@@ -3,8 +3,11 @@ package gov.va.aes.vear.dataloader.data;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -15,8 +18,26 @@ import gov.va.aes.vear.dataloader.model.TableAndColumnMappingInfo;
 @Component
 public class VearDatabaseService {
 
+    private static final Logger LOG = Logger.getLogger(VearDatabaseService.class.getName());
+
     @Autowired
     public JdbcTemplate jdbcTemplate;
+
+    public boolean isVASIDBAccessible() {
+	int i = 0;
+	try {
+	    i = jdbcTemplate.queryForObject("SELECT 1 FROM DUAL", Integer.class);
+	} catch (Exception e) {
+	    LOG.log(Level.SEVERE, "Not able to establish connection to VASI Database.");
+	    return false;
+	}
+
+	if (i == 1) {
+	    LOG.log(Level.INFO, "Successfully connected to VASI Database.");
+	    return true;
+	}
+	return false;
+    }
 
     public void processDbRecordInsert(VearDataLoader vearDataLoader, Map<String, Object> excelRecord,
 	    TableAndColumnMappingInfo tableAndColumnMappingInfo) {
@@ -47,9 +68,10 @@ public class VearDatabaseService {
 	valuesSQLStr = valuesSQLStr + ")";
 	sql = sql + colNamesSQL + valuesSQLStr;
 	// PK loop
-	System.out.println("DB INSERT SQL :" + sql);
-	System.out.println("DB INSERT PARAMS :" + insertParams.toString());
-	// jdbcTemplate.update(sql, insertParams);
+	LOG.log(Level.INFO, "DB INSERT SQL :" + sql);
+	LOG.log(Level.INFO, "DB INSERT PARAMS :" + insertParams.toString());
+	// Insert Records
+	jdbcTemplate.update(sql, insertParams.toArray(new Object[insertParams.size()]));
     }
 
     public void processDbRecordUpdate(VearDataLoader vearDataLoader, Map<String, Object> excelRecord,
@@ -58,10 +80,23 @@ public class VearDatabaseService {
 	String sql = "update " + tableAndColumnMappingInfo.getTableName() + " set ";
 	for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getColumnMappings().entrySet()) {
 	    if (!tableAndColumnMappingInfo.getPkColumnMappings().containsKey(mapping.getKey())) {
-		if (excelRecord.get(mapping.getKey()) != null) {
-		    sql = sql.concat(mapping.getValue().getDbColName()).concat(" = ").concat("?").concat(",");
-		    updateParams.add(excelRecord.get(mapping.getKey()));
+		Object columnValue = excelRecord.get(mapping.getKey());
+
+		if (columnValue != null && columnValue instanceof String
+			&& ((String) columnValue).getBytes().length > 4000) {
+		    int originalSize = ((String) columnValue).getBytes().length;
+		    int originalLength = ((String) columnValue).length();
+
+		    columnValue = ((String) columnValue).substring(0, 3995);
+		    LOG.log(Level.INFO, "Truncating text greater than 4000 bytes. Column Name:" + mapping.getKey()
+			    + " Original: " + originalLength + "(" + originalSize + ") Truncated: "
+			    + ((String) columnValue).length() + "(" + ((String) columnValue).getBytes().length + ")");
+
 		}
+
+		sql = sql.concat(mapping.getValue().getDbColName()).concat(" = ").concat("?").concat(",");
+		updateParams.add(columnValue);
+
 	    }
 	}
 	sql = sql.substring(0, sql.length() - 1);
@@ -77,10 +112,11 @@ public class VearDatabaseService {
 
 	}
 	sql = sql + whereSQL;
-	// jdbcTemplate.update(sql, updateParams);
 
-	System.out.println("DB UPDATE SQL :" + sql);
-	System.out.println("DB UPDATE PARAMS :" + updateParams.toString());
+	LOG.log(Level.INFO, "DB UPDATE SQL :" + sql);
+	LOG.log(Level.INFO, "DB UPDATE PARAMS :" + updateParams.toString());
+	// update records
+	jdbcTemplate.update(sql, updateParams.toArray(new Object[updateParams.size()]));
     }
 
     public Map<String, Object> getDBRecord(VearDataLoader vearDataLoader, Map<String, Object> excelRecord,
@@ -105,10 +141,11 @@ public class VearDatabaseService {
 	    Object param = excelRecord.get(mapping.getKey());
 	    String columnName = mapping.getValue().getDbColName();
 	    if (param != null) {
-		System.out.println(
-			"Column : " + columnName + " Value: " + param + " Type: " + param.getClass().getName());
+		// LOG.log(Level.INFO,
+		// "Column : " + columnName + " Value: " + param + " Type: " +
+		// param.getClass().getName());
 	    } else {
-		System.out.println("Column : " + columnName + " Value: " + param);
+		// LOG.log(Level.INFO, "Column : " + columnName + " Value: " + param);
 		foundAllPKValues = false;
 	    }
 	    if (whereSQL == null) {
@@ -125,12 +162,14 @@ public class VearDatabaseService {
 
 	String sql = "select  " + colNamesSQL + " from " + tableAndColumnMappingInfo.getTableName() + whereSQL;
 
-	System.out.println("DB Select SQL :" + sql);
-	System.out.println("DB Select SQL :" + selectWhereParams);
+	LOG.log(Level.INFO, "DB Select SQL :" + sql);
+	LOG.log(Level.INFO, "DB Select SQL :" + selectWhereParams);
 
-	// Use SQL and Params to execute Query using template.qureyForObject method
-	dbRecord = jdbcTemplate.queryForMap(sql, selectWhereParams.toArray(new Object[selectWhereParams.size()]));
-
+	try {
+	    dbRecord = jdbcTemplate.queryForMap(sql, selectWhereParams.toArray(new Object[selectWhereParams.size()]));
+	} catch (EmptyResultDataAccessException e) {
+	    // ignore this and return null;
+	}
 	return dbRecord;
     }
 

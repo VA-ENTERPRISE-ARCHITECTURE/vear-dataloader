@@ -14,6 +14,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.apache.poi.hssf.util.CellReference;
 import org.apache.poi.ss.usermodel.Cell;
@@ -35,16 +38,20 @@ import gov.va.aes.vear.dataloader.model.TableAndColumnMappingInfo;
 @Component
 public class ExcelDataReader {
 
+    private static final Logger LOG = Logger.getLogger(ExcelDataReader.class.getName());
+
     @Autowired
     PickListDao pickListDao;
 
     private Map<Long, Map<String, Object>> pickListDataReverseMap = new HashMap<>();
 
     public List<Map<String, Object>> readExcelData(final String dataFile,
-	    final Collection<TableAndColumnMappingInfo> tableMappingInfo) throws FileNotFoundException, IOException {
+	    final Collection<TableAndColumnMappingInfo> tableMappingInfo)
+	    throws FileNotFoundException, IOException, ValidateException {
 	FileInputStream inputStream = new FileInputStream(new File(dataFile));
 	Workbook workbook = new XSSFWorkbook(inputStream);
 	Sheet firstSheet = workbook.getSheetAt(0);
+
 	Iterator<Row> iterator = firstSheet.iterator();
 	List<Map<String, Object>> excelRecords = new ArrayList<>();
 	Map<String, DatabaseColumn> excelColNamesMap = new HashMap<>();
@@ -54,21 +61,23 @@ public class ExcelDataReader {
 	    }
 
 	}
+	List<String> headerNamesList = new ArrayList<>();
 	while (iterator.hasNext()) {
 	    Row nextRow = iterator.next();
 	    if (nextRow.getRowNum() == 0) {
+		validateDataFileColumnsExists(excelColNamesMap, headerNamesList, nextRow);
 		continue; // just skip the header row
 	    }
 	    Iterator<Cell> cellIterator = nextRow.cellIterator();
 	    Map<String, Object> excelRecord = new HashMap<>();
 	    while (cellIterator.hasNext()) {
 		Cell cell = cellIterator.next();
-		String headerName = getCellName(cell, firstSheet);
+		String headerName = getCellName(cell, firstSheet).trim();
 		// String cellValue = getCellValueAsString(cell);
 		if (excelColNamesMap.containsKey(headerName)) {
 
 		    DatabaseColumn dbColumn = excelColNamesMap.get(headerName);
-		    System.out.println("Reading Cell: " + headerName + " - type: " + dbColumn.getDbColType());
+		    LOG.log(Level.FINE, "Reading Cell: " + headerName + " - type: " + dbColumn.getDbColType());
 		    Object valueObj = getValueAsObject(cell, dbColumn);
 
 		    if (dbColumn.isExcelColumnDataCleanup()) {
@@ -87,39 +96,68 @@ public class ExcelDataReader {
 	return excelRecords;
     }
 
+    // collect headerNames to verify all columns are present
+    private void validateDataFileColumnsExists(Map<String, DatabaseColumn> excelColNamesMap,
+	    List<String> headerNamesList, Row nextRow) throws ValidateException {
+	Iterator<Cell> cellIterator = nextRow.cellIterator();
+	while (cellIterator.hasNext()) {
+	    Cell cell = cellIterator.next();
+	    headerNamesList.add(getCellValueAsString(cell).trim());
+	}
+	Set<String> headerNamesSet = excelColNamesMap.keySet();
+
+	for (String mappingHeaderName : headerNamesSet) {
+	    if (!headerNamesList.contains(mappingHeaderName)) {
+		throw new ValidateException("Invalid Input Data File. Header Name \"" + mappingHeaderName
+			+ "\" does not exist in Excel file.");
+
+	    }
+	}
+
+    }
+
     private String cleanupValue(String valueObj) {
-	// TODO Auto-generated method stub
 	return valueObj != null ? Jsoup.parse(valueObj).text() : null;
     }
 
+    /**
+     * 
+     * @param cell
+     *            : cell value from input data file
+     * @param dbColumn
+     *            : DatabaseColumn object
+     * @return : returns an object based on the cell value and column type defined
+     *         in mapping file
+     */
     private Object getValueAsObject(Cell cell, DatabaseColumn dbColumn) {
-	// TODO Convert String to Object based on db Data type;
 	DataFormatter df = new DataFormatter();
-	SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy");
-	if (dbColumn.getDbColType().equals("TEXT")) {
-	    return getCellValueAsString(cell);
-	} else if (dbColumn.getDbColType().equals("NUMBER")) {
-	    return new BigDecimal(df.formatCellValue(cell));
-	} else if (dbColumn.getDbColType().equals("DATE")) {
-	    if (cell.getCellType() == XSSFCell.CELL_TYPE_STRING) {
-		String dateStr = getCellValueAsString(cell);
-		try {
-		    return new Timestamp(new SimpleDateFormat("dd/MM/yyyy").parse(dateStr).getTime());
-		} catch (ParseException e) {
-		    return null;
+	try {
+	    if (dbColumn.getDbColType().equals("TEXT")) {
+		return getCellValueAsString(cell);
+	    } else if (dbColumn.getDbColType().equals("NUMBER")) {
+		return new BigDecimal(df.formatCellValue(cell));
+	    } else if (dbColumn.getDbColType().equals("DATE")) {
+		if (cell.getCellType() == XSSFCell.CELL_TYPE_STRING) {
+		    String dateStr = getCellValueAsString(cell);
+		    try {
+			return new Timestamp(new SimpleDateFormat("MM/dd/yyyy").parse(dateStr).getTime());
+		    } catch (ParseException e) {
+			return null;
+		    }
+		} else {
+		    return new Timestamp(cell.getDateCellValue().getTime());
 		}
-	    } else {
-		return new Timestamp(cell.getDateCellValue().getTime());
-	    }
 
-	} else if (dbColumn.getDbColType().equals("PICKLIST")) {
-	    return getPickListDataKey(getCellValueAsString(cell), dbColumn.getPickListTableId());
+	    } else if (dbColumn.getDbColType().equals("PICKLIST")) {
+		return getPickListDataKey(getCellValueAsString(cell), dbColumn.getPickListTableId());
+	    }
+	} catch (NullPointerException e) {
+	    return null;
 	}
 	throw new RuntimeException(" Unsupported DB Column Type in Mapping");
     }
 
     private Object getPickListDataKey(String cellValueAsString, Long pickListTableId) {
-	// TODO Auto-generated method stub
 	Map<String, Object> pickListDataReveseMap = pickListDataReverseMap.get(pickListTableId);
 	if (pickListDataReveseMap == null) {
 	    pickListDataReveseMap = populatePickListData(pickListTableId);
