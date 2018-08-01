@@ -16,8 +16,6 @@ import java.util.logging.Logger;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 import gov.va.aes.vear.dataloader.data.VearDatabaseService;
 import gov.va.aes.vear.dataloader.model.PrimaryKeyMapping;
@@ -43,7 +41,6 @@ public class VearDataLoader {
     @Autowired
     CompileDbRecordsNotFound compileDbRecordsNotFound;
 
-    @Transactional(propagation = Propagation.REQUIRED, rollbackFor = Exception.class)
     public void process() {
 	// Make Sure proper directory structure in place.
 	if (Files.exists(Paths.get(GlobalValues.INPUT_FILE_PATH))) {
@@ -58,8 +55,6 @@ public class VearDataLoader {
 	    } catch (Exception e) {
 		LOG.log(Level.SEVERE, "VearDataLoader Process failed with Exception: " + e.getMessage());
 		e.printStackTrace();
-	    } finally {
-		throw new RuntimeException("Throwing Exception for Rollingback.");
 	    }
 	} else {
 	    System.out.println(
