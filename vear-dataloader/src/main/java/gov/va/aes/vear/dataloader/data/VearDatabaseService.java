@@ -1,5 +1,6 @@
 package gov.va.aes.vear.dataloader.data;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -68,8 +69,8 @@ public class VearDatabaseService {
 	valuesSQLStr = valuesSQLStr + ")";
 	sql = sql + colNamesSQL + valuesSQLStr;
 	// PK loop
-	LOG.log(Level.INFO, "DB INSERT SQL :" + sql);
-	LOG.log(Level.INFO, "DB INSERT PARAMS :" + insertParams.toString());
+	LOG.log(Level.FINE, "DB INSERT SQL :" + sql);
+	LOG.log(Level.FINE, "DB INSERT PARAMS :" + insertParams.toString());
 	// Insert Records
 	jdbcTemplate.update(sql, insertParams.toArray(new Object[insertParams.size()]));
     }
@@ -113,8 +114,8 @@ public class VearDatabaseService {
 	}
 	sql = sql + whereSQL;
 
-	LOG.log(Level.INFO, "DB UPDATE SQL :" + sql);
-	LOG.log(Level.INFO, "DB UPDATE PARAMS :" + updateParams.toString());
+	LOG.log(Level.FINE, "DB UPDATE SQL :" + sql);
+	LOG.log(Level.FINE, "DB UPDATE PARAMS :" + updateParams.toString());
 	// update records
 	jdbcTemplate.update(sql, updateParams.toArray(new Object[updateParams.size()]));
     }
@@ -122,7 +123,6 @@ public class VearDatabaseService {
     public Map<String, Object> getDBRecord(VearDataLoader vearDataLoader, Map<String, Object> excelRecord,
 	    TableAndColumnMappingInfo tableAndColumnMappingInfo) {
 	Map<String, Object> dbRecord = null;
-	// TODO Auto-generated method stub
 
 	String colNamesSQL = null;
 	List<Object> selectWhereParams = new ArrayList<>();
@@ -140,12 +140,7 @@ public class VearDatabaseService {
 	for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getPkColumnMappings().entrySet()) {
 	    Object param = excelRecord.get(mapping.getKey());
 	    String columnName = mapping.getValue().getDbColName();
-	    if (param != null) {
-		// LOG.log(Level.INFO,
-		// "Column : " + columnName + " Value: " + param + " Type: " +
-		// param.getClass().getName());
-	    } else {
-		// LOG.log(Level.INFO, "Column : " + columnName + " Value: " + param);
+	    if (param == null) {
 		foundAllPKValues = false;
 	    }
 	    if (whereSQL == null) {
@@ -162,15 +157,49 @@ public class VearDatabaseService {
 
 	String sql = "select  " + colNamesSQL + " from " + tableAndColumnMappingInfo.getTableName() + whereSQL;
 
-	LOG.log(Level.INFO, "DB Select SQL :" + sql);
-	LOG.log(Level.INFO, "DB Select SQL :" + selectWhereParams);
+	LOG.log(Level.FINE, "DB Select SQL :" + sql);
+	LOG.log(Level.FINE, "DB Select SQL :" + selectWhereParams);
 
 	try {
 	    dbRecord = jdbcTemplate.queryForMap(sql, selectWhereParams.toArray(new Object[selectWhereParams.size()]));
+
 	} catch (EmptyResultDataAccessException e) {
 	    // ignore this and return null;
 	}
 	return dbRecord;
+    }
+
+    public List<Map<String, Object>> getAllDBRecords(TableAndColumnMappingInfo tableAndColumnMappingInfo)
+	    throws IOException {
+
+	// TODO this method does not handle multiple tables
+	List<Map<String, Object>> dbRecords = null;
+
+	String colNamesSQL = null;
+	String tableName = null;
+	List<Object> selectParams = new ArrayList<>();
+
+	for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getColumnMappings().entrySet()) {
+	    if (colNamesSQL == null) {
+		colNamesSQL = mapping.getValue().getDbColName();
+	    } else {
+		colNamesSQL = colNamesSQL + ", " + mapping.getValue().getDbColName();
+	    }
+	    tableName = tableAndColumnMappingInfo.getTableName();
+	}
+
+	String sql = "select  " + colNamesSQL + " from " + tableName;
+
+	LOG.log(Level.INFO, "DB Select SQL for all dbRecords: " + sql);
+
+	try {
+	    dbRecords = jdbcTemplate.queryForList(sql);// TODO Check, selectParams.toArray(new
+						       // Object[selectParams.size()]));
+	    LOG.log(Level.FINE, "dbRecords size: " + dbRecords.size());
+	} catch (Exception e) {
+	    LOG.log(Level.SEVERE, "Unable to read records from VEAR Database.");
+	}
+	return dbRecords;
     }
 
 }

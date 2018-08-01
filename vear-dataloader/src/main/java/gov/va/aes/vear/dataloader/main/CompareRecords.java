@@ -1,6 +1,8 @@
 package gov.va.aes.vear.dataloader.main;
 
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.springframework.stereotype.Component;
 
@@ -10,13 +12,20 @@ import gov.va.aes.vear.dataloader.model.TableAndColumnMappingInfo;
 @Component
 public class CompareRecords {
 
+    private static final Logger LOG = Logger.getLogger(CompareRecords.class.getName());
+
     public boolean checkAttributesChanged(Map<String, Object> excelRecord, Map<String, Object> dbRecord,
 	    TableAndColumnMappingInfo tableAndColumnMappingInfo) {
 	boolean checkAttributesChanged = false;
 	for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getColumnMappings().entrySet()) {
-	    checkAttributesChanged = !compareObject(excelRecord.get(mapping.getKey()), dbRecord.get(mapping.getKey()));
-	    if (checkAttributesChanged)
+
+	    checkAttributesChanged = !compareObject(excelRecord.get(mapping.getKey()),
+		    dbRecord.get(mapping.getValue().getDbColName()));
+	    if (checkAttributesChanged) {
+		LOG.log(Level.FINE, "Compare Data, Excel record value: " + excelRecord.get(mapping.getKey())
+			+ " - Db Record value: " + dbRecord.get(mapping.getValue().getDbColName()));
 		break;
+	    }
 	}
 
 	return checkAttributesChanged;

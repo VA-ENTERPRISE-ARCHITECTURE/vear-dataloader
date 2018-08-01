@@ -1,13 +1,14 @@
 package gov.va.aes.vear.dataloader.main;
 
+import java.io.File;
 import java.io.FileInputStream;
-import java.io.InputStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -22,17 +23,18 @@ public class DataMappingExcelReader {
     public Collection<TableAndColumnMappingInfo> readMappingFile(final String fileName) throws Exception {
 	Map<String, TableAndColumnMappingInfo> result = new HashMap<>();
 	try {
-	    InputStream inputStream = new FileInputStream(fileName);
+	    FileInputStream inputStream = new FileInputStream(new File(fileName));
 	    Workbook workbook = new XSSFWorkbook(inputStream);
 	    Sheet firstSheet = workbook.getSheetAt(0);
 	    Iterator<Row> iterator = firstSheet.iterator();
+	    DataFormatter df = new DataFormatter();
 	    while (iterator.hasNext()) {
 		Row nextRow = iterator.next();
 		if (nextRow.getRowNum() == 0) {
 		    continue; // just skip the header row
 		}
 		Iterator<Cell> cellIterator = nextRow.cellIterator();
-		String excelColumnaName = cellIterator.next().getStringCellValue();
+		String excelColumnNumber = df.formatCellValue(cellIterator.next());
 		String tablename = cellIterator.next().getStringCellValue();
 		String tableColName = cellIterator.next().getStringCellValue();
 		String tableColDataType = cellIterator.next().getStringCellValue();
@@ -47,10 +49,10 @@ public class DataMappingExcelReader {
 		    tableAndColumnMappingInfo = new TableAndColumnMappingInfo();
 		    tableAndColumnMappingInfo.setTableName(tablename);
 		}
-		tableAndColumnMappingInfo.addColumnMapping(excelColumnaName, tableColName, tableColDataType,
+		tableAndColumnMappingInfo.addColumnMapping(excelColumnNumber, tableColName, tableColDataType,
 			pickListTableId, isExcelColumnDataCleanup);
 		if (isPkCol != null && Boolean.valueOf(isPkCol)) {
-		    tableAndColumnMappingInfo.addPkColumnMapping(excelColumnaName, tableColName, tableColDataType);
+		    tableAndColumnMappingInfo.addPkColumnMapping(excelColumnNumber, tableColName, tableColDataType);
 		}
 		result.put(tablename, tableAndColumnMappingInfo);
 	    }

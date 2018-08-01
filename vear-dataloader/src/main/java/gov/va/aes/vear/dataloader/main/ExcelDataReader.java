@@ -18,7 +18,6 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.poi.hssf.util.CellReference;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.DateUtil;
@@ -45,64 +44,70 @@ public class ExcelDataReader {
 
     private Map<Long, Map<String, Object>> pickListDataReverseMap = new HashMap<>();
 
-    public List<Map<String, Object>> readExcelData(final String dataFile,
+    public List<Map<String, Object>> readExcelData(final String[] dataFiles,
 	    final Collection<TableAndColumnMappingInfo> tableMappingInfo)
 	    throws FileNotFoundException, IOException, ValidateException {
-	FileInputStream inputStream = new FileInputStream(new File(dataFile));
-	Workbook workbook = new XSSFWorkbook(inputStream);
-	Sheet firstSheet = workbook.getSheetAt(0);
-
-	Iterator<Row> iterator = firstSheet.iterator();
 	List<Map<String, Object>> excelRecords = new ArrayList<>();
-	Map<String, DatabaseColumn> excelColNamesMap = new HashMap<>();
-	for (TableAndColumnMappingInfo tableAndColumnMappingInfo : tableMappingInfo) {
-	    for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getColumnMappings().entrySet()) {
-		excelColNamesMap.put(mapping.getKey(), mapping.getValue());
-	    }
+	for (String dataFile : dataFiles) {
+	    LOG.log(Level.INFO, "Reading Excel File : {0}", dataFile);
+	    FileInputStream inputStream = new FileInputStream(new File(dataFile));
+	    Workbook workbook = new XSSFWorkbook(inputStream);
+	    Sheet firstSheet = workbook.getSheetAt(0);
 
-	}
-	List<String> headerNamesList = new ArrayList<>();
-	while (iterator.hasNext()) {
-	    Row nextRow = iterator.next();
-	    if (nextRow.getRowNum() == 0) {
-		validateDataFileColumnsExists(excelColNamesMap, headerNamesList, nextRow);
-		continue; // just skip the header row
-	    }
-	    Iterator<Cell> cellIterator = nextRow.cellIterator();
-	    Map<String, Object> excelRecord = new HashMap<>();
-	    while (cellIterator.hasNext()) {
-		Cell cell = cellIterator.next();
-		String headerName = getCellName(cell, firstSheet).trim();
-		// String cellValue = getCellValueAsString(cell);
-		if (excelColNamesMap.containsKey(headerName)) {
+	    Iterator<Row> iterator = firstSheet.iterator();
 
-		    DatabaseColumn dbColumn = excelColNamesMap.get(headerName);
-		    LOG.log(Level.FINE, "Reading Cell: " + headerName + " - type: " + dbColumn.getDbColType());
-		    Object valueObj = getValueAsObject(cell, dbColumn);
-
-		    if (dbColumn.isExcelColumnDataCleanup()) {
-			String cleanedUpValue = cleanupValue((String) valueObj);
-			excelRecord.put(headerName, cleanedUpValue);
-		    } else {
-			excelRecord.put(headerName, valueObj);
-		    }
-
+	    Map<String, DatabaseColumn> excelColNamesMap = new HashMap<>();
+	    for (TableAndColumnMappingInfo tableAndColumnMappingInfo : tableMappingInfo) {
+		for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getColumnMappings()
+			.entrySet()) {
+		    excelColNamesMap.put(mapping.getKey(), mapping.getValue());
 		}
 	    }
-	    excelRecords.add(excelRecord);
+
+	    while (iterator.hasNext()) {
+		Row nextRow = iterator.next();
+		if (nextRow.getRowNum() == 0) {
+		    validateDataFileColumnsExists(excelColNamesMap, nextRow);
+		    continue; // just skip the header row
+		}
+		Iterator<Cell> cellIterator = nextRow.cellIterator();
+		Map<String, Object> excelRecord = new HashMap<>();
+		while (cellIterator.hasNext()) {
+		    Cell cell = cellIterator.next();
+		    String headerName = getCellName(cell, firstSheet).trim();
+		    // String cellValue = getCellValueAsString(cell);
+		    if (excelColNamesMap.containsKey(headerName)) {
+
+			DatabaseColumn dbColumn = excelColNamesMap.get(headerName);
+			LOG.log(Level.FINE, "Reading Cell: " + headerName + " - type: " + dbColumn.getDbColType());
+			Object valueObj = getValueAsObject(cell, dbColumn);
+
+			if (dbColumn.isExcelColumnDataCleanup()) {
+			    String cleanedUpValue = cleanupValue((String) valueObj);
+			    excelRecord.put(headerName, cleanedUpValue);
+			} else {
+			    excelRecord.put(headerName, valueObj);
+			}
+
+		    }
+		}
+		excelRecords.add(excelRecord);
+	    }
+	    workbook.close();
+	    inputStream.close();
 	}
-	workbook.close();
-	inputStream.close();
 	return excelRecords;
     }
 
     // collect headerNames to verify all columns are present
-    private void validateDataFileColumnsExists(Map<String, DatabaseColumn> excelColNamesMap,
-	    List<String> headerNamesList, Row nextRow) throws ValidateException {
+    private void validateDataFileColumnsExists(Map<String, DatabaseColumn> excelColNamesMap, Row nextRow)
+	    throws ValidateException {
+	List<String> headerNamesList = new ArrayList<>();
 	Iterator<Cell> cellIterator = nextRow.cellIterator();
 	while (cellIterator.hasNext()) {
 	    Cell cell = cellIterator.next();
-	    headerNamesList.add(getCellValueAsString(cell).trim());
+
+	    headerNamesList.add(String.valueOf(cell.getColumnIndex()));
 	}
 	Set<String> headerNamesSet = excelColNamesMap.keySet();
 
@@ -167,10 +172,11 @@ public class ExcelDataReader {
     }
 
     private Map<String, Object> populatePickListData(Long pickListTableId) {
-	// TODO Auto-generated method stub
 	List<Map<String, Object>> pickListData = pickListDao.getPickListData(pickListTableId);
 	Map<String, Object> reverseMap = new HashMap<>();
 	for (Map<String, Object> record : pickListData) {
+	    LOG.log(Level.FINE, "pickListData, DESCRIPTION: " + record.get("DESCRIPTION") + " - OPTION_ID: "
+		    + record.get("OPTION_ID"));
 	    reverseMap.put((String) record.get("DESCRIPTION"), record.get("OPTION_ID"));
 	}
 	pickListDataReverseMap.put(pickListTableId, reverseMap);
@@ -179,10 +185,8 @@ public class ExcelDataReader {
     }
 
     private String getCellName(Cell cell1, Sheet sheet) {
-	CellReference cr = new CellReference(CellReference.convertNumToColString(cell1.getColumnIndex()) + "0");
-	Row row = sheet.getRow(0);
-	Cell cell = row.getCell(cell1.getColumnIndex());
-	return cell.getStringCellValue();
+	return String.valueOf(cell1.getColumnIndex());
+
     }
 
     private String getCellValueAsString(Cell cell) {

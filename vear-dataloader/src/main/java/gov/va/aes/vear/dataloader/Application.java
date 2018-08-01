@@ -23,7 +23,7 @@ public class Application {
     @Bean
     public CommandLineRunner commandLineRunner(ApplicationContext ctx) {
 	return args -> {
-	    dataloader.process(args[0], args[1]);
+	    dataloader.process();
 
 	    ((ConfigurableApplicationContext) ctx).close();
 	};

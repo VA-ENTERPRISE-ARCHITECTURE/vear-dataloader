@@ -9,6 +9,11 @@ import java.util.Map;
  */
 public class TableAndColumnMappingInfo implements Serializable {
 
+    /**
+     * 
+     */
+    private static final long serialVersionUID = 1L;
+
     private String tableName;
     private Map<String, DatabaseColumn> columnMappings;
     private Map<String, DatabaseColumn> pkColumnMappings;
@@ -42,14 +47,14 @@ public class TableAndColumnMappingInfo implements Serializable {
 	this.pkColumnMappings = pkColumnMappings;
     }
 
-    public void addColumnMapping(final String csvColumnName, String dbColName, String dbColType, Long pickListTableId,
-	    boolean excelColumnDataCleanup) {
-	this.columnMappings.put(csvColumnName,
+    public void addColumnMapping(final String excelColumnNumber, String dbColName, String dbColType,
+	    Long pickListTableId, boolean excelColumnDataCleanup) {
+	this.columnMappings.put(excelColumnNumber,
 		new DatabaseColumn(dbColName, dbColType, pickListTableId, excelColumnDataCleanup));
     }
 
-    public void addPkColumnMapping(final String csvColumnName, String dbColName, String dbColType) {
-	this.pkColumnMappings.put(csvColumnName, new DatabaseColumn(dbColName, dbColType, null, false));
+    public void addPkColumnMapping(final String excelColumnNumber, String dbColName, String dbColType) {
+	this.pkColumnMappings.put(excelColumnNumber, new DatabaseColumn(dbColName, dbColType, null, false));
     }
 
 }
