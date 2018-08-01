@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import gov.va.aes.vear.dataloader.data.VearDatabaseService;
-import gov.va.aes.vear.dataloader.model.DatabaseColumn;
+import gov.va.aes.vear.dataloader.model.PrimaryKeyMapping;
 import gov.va.aes.vear.dataloader.model.TableAndColumnMappingInfo;
 import gov.va.aes.vear.dataloader.utils.GlobalValues;
 import gov.va.aes.vear.dataloader.utils.PrintUtils;
@@ -38,6 +38,8 @@ public class VearDataLoader {
     VearDatabaseService vearDatabaseService;
     @Autowired
     CompareRecords compareRecords;
+    @Autowired
+    PrimaryKeyMapping primaryKeyMapping;
     @Autowired
     CompileDbRecordsNotFound compileDbRecordsNotFound;
 
@@ -94,10 +96,11 @@ public class VearDataLoader {
 	try {
 
 	    List<Map<String, Object>> excelRecords = excelDataReader.readExcelData(dataFiles, tableMappingInfo);
+	    // creating excelRecordsMap from the excelRecords list
 	    HashMap<String, Map<String, Object>> excelRecordsMap = new HashMap<String, Map<String, Object>>();
 	    for (Map<String, Object> excelRecord : excelRecords) {
 
-		String pkValueStr = getPKValueAsString(excelRecord, tableMappingInfo);
+		String pkValueStr = primaryKeyMapping.getPKValueAsString(excelRecord, tableMappingInfo);
 		excelRecordsMap.put(pkValueStr, excelRecord);
 
 	    }
@@ -105,22 +108,18 @@ public class VearDataLoader {
 
 	    for (TableAndColumnMappingInfo tableAndColumnMappingInfo : tableMappingInfo) { // Processing excel records
 											   // for each table
-
 		List<Map<String, Object>> dbRecords = vearDatabaseService.getAllDBRecords(tableAndColumnMappingInfo);
-
+		// creating dbRecordsMap from the dbRecords list
 		HashMap<String, Map<String, Object>> dbRecordsMap = new HashMap<String, Map<String, Object>>();
 		for (Map<String, Object> dbRecord : dbRecords) {
-
-		    String pkValueStr = getDBPKValueAsString(dbRecord, tableMappingInfo);
+		    String pkValueStr = primaryKeyMapping.getDBPKValueAsString(dbRecord, tableMappingInfo);
 		    dbRecordsMap.put(pkValueStr, dbRecord);
-
 		}
 
 		for (Map<String, Object> excelRecord : excelRecords) {
 
-		    Map<String, Object> dbRecord = dbRecordsMap.get(getPKValueAsString(excelRecord, tableMappingInfo));
-		    // vearDatabaseService.getDBRecord(this, excelRecord,
-		    // tableAndColumnMappingInfo);
+		    Map<String, Object> dbRecord = dbRecordsMap
+			    .get(primaryKeyMapping.getPKValueAsString(excelRecord, tableMappingInfo));
 
 		    if (dbRecord != null) {
 			if (compareRecords.checkAttributesChanged(excelRecord, dbRecord, tableAndColumnMappingInfo)) {
@@ -162,40 +161,6 @@ public class VearDataLoader {
 	    LOG.log(Level.SEVERE, e.getMessage());
 	}
 
-    }
-
-    private String getPKValueAsString(Map<String, Object> excelRecord,
-	    Collection<TableAndColumnMappingInfo> tableMappingInfo) {
-	List<Object> pkValuesList = new ArrayList<>();
-	for (TableAndColumnMappingInfo tableAndColumnMappingInfo : tableMappingInfo) {
-
-	    for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getPkColumnMappings()
-		    .entrySet()) {
-
-		pkValuesList.add(excelRecord.get(mapping.getKey()));
-	    }
-
-	}
-
-	return pkValuesList.toString();
-	// return excelRecord.get(mapping.getKey()).toString();
-    }
-
-    private String getDBPKValueAsString(Map<String, Object> dbRecord,
-	    Collection<TableAndColumnMappingInfo> tableMappingInfo) {
-	List<Object> pkValuesList = new ArrayList<>();
-	for (TableAndColumnMappingInfo tableAndColumnMappingInfo : tableMappingInfo) {
-
-	    for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getPkColumnMappings()
-		    .entrySet()) {
-
-		pkValuesList.add(dbRecord.get(mapping.getValue().getDbColName()));
-	    }
-
-	}
-
-	return pkValuesList.toString();
-	// return excelRecord.get(mapping.getKey()).toString();
     }
 
 }
