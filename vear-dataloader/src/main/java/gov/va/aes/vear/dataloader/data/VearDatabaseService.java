@@ -82,17 +82,20 @@ public class VearDatabaseService {
 	for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getColumnMappings().entrySet()) {
 	    if (!tableAndColumnMappingInfo.getPkColumnMappings().containsKey(mapping.getKey())) {
 		Object columnValue = excelRecord.get(mapping.getKey());
+		if (mapping.getValue().getColumnSize() > 0) {
+		    if (columnValue != null && columnValue instanceof String
+			    && ((String) columnValue).getBytes().length > mapping.getValue().getColumnSize()) {
+			int originalSize = ((String) columnValue).getBytes().length;
+			int originalLength = ((String) columnValue).length();
 
-		if (columnValue != null && columnValue instanceof String
-			&& ((String) columnValue).getBytes().length > 4000) {
-		    int originalSize = ((String) columnValue).getBytes().length;
-		    int originalLength = ((String) columnValue).length();
+			columnValue = ((String) columnValue).substring(0, mapping.getValue().getColumnSize() - 5);
+			LOG.log(Level.INFO,
+				"Truncating text greater than " + mapping.getValue().getColumnSize()
+					+ " bytes. Column Name:" + mapping.getKey() + " Original: " + originalLength
+					+ "(" + originalSize + ") Truncated: " + ((String) columnValue).length() + "("
+					+ ((String) columnValue).getBytes().length + ")");
 
-		    columnValue = ((String) columnValue).substring(0, 3995);
-		    LOG.log(Level.INFO, "Truncating text greater than 4000 bytes. Column Name:" + mapping.getKey()
-			    + " Original: " + originalLength + "(" + originalSize + ") Truncated: "
-			    + ((String) columnValue).length() + "(" + ((String) columnValue).getBytes().length + ")");
-
+		    }
 		}
 
 		sql = sql.concat(mapping.getValue().getDbColName()).concat(" = ").concat("?").concat(",");
@@ -177,7 +180,6 @@ public class VearDatabaseService {
 
 	String colNamesSQL = null;
 	String tableName = null;
-	List<Object> selectParams = new ArrayList<>();
 
 	for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getColumnMappings().entrySet()) {
 	    if (colNamesSQL == null) {
@@ -189,12 +191,10 @@ public class VearDatabaseService {
 	}
 
 	String sql = "select  " + colNamesSQL + " from " + tableName;
-
-	LOG.log(Level.INFO, "DB Select SQL for all dbRecords: " + sql);
+	LOG.log(Level.FINE, "DB Select SQL for all dbRecords: " + sql);
 
 	try {
-	    dbRecords = jdbcTemplate.queryForList(sql);// TODO Check, selectParams.toArray(new
-						       // Object[selectParams.size()]));
+	    dbRecords = jdbcTemplate.queryForList(sql);
 	    LOG.log(Level.FINE, "dbRecords size: " + dbRecords.size());
 	} catch (Exception e) {
 	    LOG.log(Level.SEVERE, "Unable to read records from VEAR Database.");

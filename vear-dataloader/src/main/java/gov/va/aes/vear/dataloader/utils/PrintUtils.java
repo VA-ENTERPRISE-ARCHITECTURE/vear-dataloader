@@ -1,11 +1,7 @@
 package gov.va.aes.vear.dataloader.utils;
 
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import gov.va.aes.vear.dataloader.model.DatabaseColumn;
-import gov.va.aes.vear.dataloader.model.TableAndColumnMappingInfo;
 
 public final class PrintUtils {
     private static final Logger LOG = Logger.getLogger(PrintUtils.class.getName());
@@ -13,9 +9,9 @@ public final class PrintUtils {
     private PrintUtils() {
     }
 
-    public static void printSummaryReport(TableAndColumnMappingInfo tableAndColumnMappingInfo) {
+    public static void printSummaryReport() {
 	LOG.log(Level.INFO, "");
-	LOG.log(Level.INFO, "VEAR ETL Input");
+	LOG.log(Level.INFO, "Project Name: " + GlobalValues.projectName);
 	LOG.log(Level.INFO, "==========");
 	LOG.log(Level.INFO, "Total Records read from VEAR ETL Input files = " + GlobalValues.TotalInputRecordsCount);
 	LOG.log(Level.INFO, "");
@@ -31,8 +27,8 @@ public final class PrintUtils {
 	LOG.log(Level.INFO, "");
 	LOG.log(Level.INFO, "VEAR ETL Output");
 	LOG.log(Level.INFO, "==========");
-	LOG.log(Level.INFO, "Processed " + GlobalValues.recordsUpdateCount + " Update records without errors");
-	LOG.log(Level.INFO, "Processed " + GlobalValues.recordsUpdateCount + " Update records without errors");
+	LOG.log(Level.INFO, "Processed " + GlobalValues.recordsInserted.size() + " Insert records without errors");
+	LOG.log(Level.INFO, "Processed " + GlobalValues.recordsUpdated.size() + " Update records without errors");
 	LOG.log(Level.INFO, "ETL Records in Sync with VEAR = " + GlobalValues.recordsMatchCount);
 
 	if (GlobalValues.recordsFailingUpdate.size() > 0 || GlobalValues.recordsFailingInsert.size() > 0) {
@@ -45,28 +41,6 @@ public final class PrintUtils {
 	}
 	LOG.log(Level.INFO, "VEAR DB Records Flagged for Deletion = " + GlobalValues.dbRecordsNotFound.size());
 
-	StringBuffer header = new StringBuffer();
-
-	for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getColumnMappings().entrySet()) {
-	    header.append(mapping.getValue().getDbColName().toString() + "|");
-	}
-
-	LOG.log(Level.INFO, header.toString());
-	for (Map<String, Object> dbRecordNotFound : GlobalValues.dbRecordsNotFound) {
-	    printBusService(dbRecordNotFound, tableAndColumnMappingInfo);
-	}
-    }
-
-    public static void printBusService(Map<String, Object> dbRecord,
-	    TableAndColumnMappingInfo tableAndColumnMappingInfo) {
-
-	StringBuffer record = new StringBuffer();
-
-	for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getColumnMappings().entrySet()) {
-	    record.append(dbRecord.get(mapping.getValue().getDbColName()) + "|");
-	}
-
-	LOG.log(Level.INFO, record.toString());
     }
 
 }

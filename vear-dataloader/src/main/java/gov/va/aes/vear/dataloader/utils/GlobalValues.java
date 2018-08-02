@@ -10,6 +10,7 @@ public final class GlobalValues {
     private GlobalValues() {
     }
 
+    public static String projectName = "No_Name";
     public static List<String> ERROR_MESSAGES = new ArrayList<String>();
     public static List<Map<String, Object>> output = new ArrayList<>();
 

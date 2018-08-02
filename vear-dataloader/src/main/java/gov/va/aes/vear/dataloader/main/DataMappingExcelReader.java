@@ -44,15 +44,18 @@ public class DataMappingExcelReader {
 			: Long.valueOf((long) pickListTableIdCellValue);
 
 		Boolean isExcelColumnDataCleanup = cellIterator.next().getBooleanCellValue();
+		double columnSizeCellValue = cellIterator.next().getNumericCellValue();
+		int columnSize = columnSizeCellValue == 0 ? 0 : Integer.valueOf((int) columnSizeCellValue);
 		TableAndColumnMappingInfo tableAndColumnMappingInfo = result.get(tablename);
 		if (tableAndColumnMappingInfo == null) {
 		    tableAndColumnMappingInfo = new TableAndColumnMappingInfo();
 		    tableAndColumnMappingInfo.setTableName(tablename);
 		}
 		tableAndColumnMappingInfo.addColumnMapping(excelColumnNumber, tableColName, tableColDataType,
-			pickListTableId, isExcelColumnDataCleanup);
+			pickListTableId, isExcelColumnDataCleanup, columnSize);
 		if (isPkCol != null && Boolean.valueOf(isPkCol)) {
-		    tableAndColumnMappingInfo.addPkColumnMapping(excelColumnNumber, tableColName, tableColDataType);
+		    tableAndColumnMappingInfo.addPkColumnMapping(excelColumnNumber, tableColName, tableColDataType,
+			    columnSize);
 		}
 		result.put(tablename, tableAndColumnMappingInfo);
 	    }

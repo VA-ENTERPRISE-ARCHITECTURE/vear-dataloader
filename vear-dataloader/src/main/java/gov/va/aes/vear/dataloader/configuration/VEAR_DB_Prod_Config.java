@@ -1,5 +1,6 @@
 package gov.va.aes.vear.dataloader.configuration;
 
+import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,10 +12,17 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import gov.va.aes.vear.dataloader.utils.GlobalValues;
+
 @Configuration
 public class VEAR_DB_Prod_Config {
     @Autowired
     Environment env;
+
+    @PostConstruct
+    public void init() {
+	GlobalValues.projectName = env.getProperty("vear.project.name");
+    }
 
     @Bean
     public DataSource dataSource() {

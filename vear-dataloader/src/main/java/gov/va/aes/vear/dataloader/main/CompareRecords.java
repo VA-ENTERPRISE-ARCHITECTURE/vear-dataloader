@@ -18,12 +18,18 @@ public class CompareRecords {
 	    TableAndColumnMappingInfo tableAndColumnMappingInfo) {
 	boolean checkAttributesChanged = false;
 	for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getColumnMappings().entrySet()) {
+	    Object columnValue = excelRecord.get(mapping.getKey());
+	    if (mapping.getValue().getColumnSize() > 0) {
+		if (columnValue != null && columnValue instanceof String
+			&& ((String) columnValue).getBytes().length > mapping.getValue().getColumnSize()) {
+		    columnValue = ((String) columnValue).substring(0, mapping.getValue().getColumnSize() - 5);
+		}
+	    }
 
-	    checkAttributesChanged = !compareObject(excelRecord.get(mapping.getKey()),
-		    dbRecord.get(mapping.getValue().getDbColName()));
+	    checkAttributesChanged = !compareObject(columnValue, dbRecord.get(mapping.getValue().getDbColName()));
 	    if (checkAttributesChanged) {
-		LOG.log(Level.FINE, "Compare Data, Excel record value: " + excelRecord.get(mapping.getKey())
-			+ " - Db Record value: " + dbRecord.get(mapping.getValue().getDbColName()));
+		LOG.log(Level.INFO, "Compare Data, Excel record value: " + columnValue + " - Db Record value: "
+			+ dbRecord.get(mapping.getValue().getDbColName()));
 		break;
 	    }
 	}

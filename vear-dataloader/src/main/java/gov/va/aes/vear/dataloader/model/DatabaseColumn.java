@@ -5,12 +5,15 @@ public class DatabaseColumn {
     private String dbColType;
     private Long pickListTableId;
     private boolean excelColumnDataCleanup;
+    private int columnSize;
 
-    public DatabaseColumn(String dbColName, String dbColType, Long pickListTableId, boolean excelColumnDataCleanup) {
+    public DatabaseColumn(String dbColName, String dbColType, Long pickListTableId, boolean excelColumnDataCleanup,
+	    int columnSize) {
 	this.dbColName = dbColName;
 	this.dbColType = dbColType;
 	this.pickListTableId = pickListTableId;
 	this.excelColumnDataCleanup = excelColumnDataCleanup;
+	this.columnSize = columnSize;
     }
 
     public boolean isExcelColumnDataCleanup() {
@@ -43,6 +46,14 @@ public class DatabaseColumn {
 
     public void setPickListTableId(Long pickListTableId) {
 	this.pickListTableId = pickListTableId;
+    }
+
+    public int getColumnSize() {
+	return columnSize;
+    }
+
+    public void setColumnSize(int columnSize) {
+	this.columnSize = columnSize;
     }
 
 }

@@ -22,6 +22,7 @@ import gov.va.aes.vear.dataloader.model.PrimaryKeyMapping;
 import gov.va.aes.vear.dataloader.model.TableAndColumnMappingInfo;
 import gov.va.aes.vear.dataloader.utils.GlobalValues;
 import gov.va.aes.vear.dataloader.utils.PrintUtils;
+import gov.va.aes.vear.dataloader.utils.RecordWriter;
 
 @Component
 public class VearDataLoader {
@@ -40,8 +41,11 @@ public class VearDataLoader {
     PrimaryKeyMapping primaryKeyMapping;
     @Autowired
     CompileDbRecordsNotFound compileDbRecordsNotFound;
+    @Autowired
+    RecordWriter recordWriter;
 
     public void process() {
+
 	// Make Sure proper directory structure in place.
 	if (Files.exists(Paths.get(GlobalValues.INPUT_FILE_PATH))) {
 	    try {
@@ -53,7 +57,7 @@ public class VearDataLoader {
 		processDataFiles(fileNamesToBeProcessed, tableMappingInfo);
 
 	    } catch (Exception e) {
-		LOG.log(Level.SEVERE, "VearDataLoader Process failed with Exception: " + e.getMessage());
+		LOG.log(Level.SEVERE, "VearDataLoader Process failed with Exception: ", e);
 		e.printStackTrace();
 	    }
 	} else {
@@ -72,7 +76,7 @@ public class VearDataLoader {
 		files.add(p.toString());
 	    }
 	} catch (IOException ex) {
-	    LOG.log(Level.SEVERE, ex.getMessage());
+	    LOG.log(Level.SEVERE, "Collect File Names Failed with Exception ", ex);
 	}
 	if (files.size() == 0) {
 	    throw new FileNotFoundException("ERROR: Sorry ... I could not find the VEAR ETL Input file in the folder "
@@ -91,6 +95,7 @@ public class VearDataLoader {
 	try {
 
 	    List<Map<String, Object>> excelRecords = excelDataReader.readExcelData(dataFiles, tableMappingInfo);
+	    GlobalValues.TotalInputRecordsCount = excelRecords.size();
 	    // creating excelRecordsMap from the excelRecords list
 	    HashMap<String, Map<String, Object>> excelRecordsMap = new HashMap<String, Map<String, Object>>();
 	    for (Map<String, Object> excelRecord : excelRecords) {
@@ -99,7 +104,6 @@ public class VearDataLoader {
 		excelRecordsMap.put(pkValueStr, excelRecord);
 
 	    }
-	    GlobalValues.TotalInputRecordsCount = excelRecords.size();
 
 	    for (TableAndColumnMappingInfo tableAndColumnMappingInfo : tableMappingInfo) { // Processing excel records
 											   // for each table
@@ -124,14 +128,15 @@ public class VearDataLoader {
 			    try {
 
 				vearDatabaseService.processDbRecordUpdate(this, excelRecord, tableAndColumnMappingInfo);
-				GlobalValues.recordsUpdated.add(excelRecord);
+				GlobalValues.recordsUpdated.add(dbRecord);
 				GlobalValues.recordsUpdateCount++;
 			    } catch (Exception e) {
 				LOG.log(Level.SEVERE, "Failed to update record", e);
-				GlobalValues.recordsFailingUpdate.add(excelRecord);
+				GlobalValues.recordsFailingUpdate.add(dbRecord);
 			    }
 			} else {
 			    LOG.log(Level.FINE, "Skipping Record as no changes found: " + excelRecord.toString());
+			    GlobalValues.recordsMatchCount++;
 
 			}
 		    } else { // No record in DB Insert New record.
@@ -150,10 +155,11 @@ public class VearDataLoader {
 		// compile VEAR Records Not Found in Input ETL files
 		GlobalValues.dbRecordsNotFound = compileDbRecordsNotFound.compileDbRecordsForDeletion(excelRecordsMap,
 			dbRecordsMap);
-		PrintUtils.printSummaryReport(tableAndColumnMappingInfo);
+		recordWriter.writeOutput(GlobalValues.dbRecordsNotFound, tableAndColumnMappingInfo);
+		PrintUtils.printSummaryReport();
 	    }
 	} catch (Exception e) {
-	    LOG.log(Level.SEVERE, e.getMessage());
+	    LOG.log(Level.SEVERE, "VEAR DATA LOADER Failed", e);
 	}
 
     }
