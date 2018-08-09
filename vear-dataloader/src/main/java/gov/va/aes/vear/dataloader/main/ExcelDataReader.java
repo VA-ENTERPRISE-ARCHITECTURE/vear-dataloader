@@ -155,6 +155,13 @@ public class ExcelDataReader {
 
 	    } else if (dbColumn.getDbColType().equals("PICKLIST")) {
 		return getPickListDataKey(getCellValueAsString(cell), dbColumn.getPickListTableId());
+	    } else if (dbColumn.getDbColType().equals("BOOLEAN")) {
+		String boolStr = getCellValueAsString(cell);
+		if (boolStr.equals("TRUE")) {
+		    return new Integer(1);
+		} else {
+		    return new Integer(0);
+		}
 	    }
 	} catch (NullPointerException e) {
 	    return null;

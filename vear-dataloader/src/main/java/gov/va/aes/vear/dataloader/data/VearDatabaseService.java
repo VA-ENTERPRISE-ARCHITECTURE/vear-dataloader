@@ -82,7 +82,7 @@ public class VearDatabaseService {
 	for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getColumnMappings().entrySet()) {
 	    if (!tableAndColumnMappingInfo.getPkColumnMappings().containsKey(mapping.getKey())) {
 		Object columnValue = excelRecord.get(mapping.getKey());
-		if (mapping.getValue().getColumnSize() > 0) {
+		if (mapping.getValue().getColumnSize() > 0) {// size truncation
 		    if (columnValue != null && columnValue instanceof String
 			    && ((String) columnValue).getBytes().length > mapping.getValue().getColumnSize()) {
 			int originalSize = ((String) columnValue).getBytes().length;
