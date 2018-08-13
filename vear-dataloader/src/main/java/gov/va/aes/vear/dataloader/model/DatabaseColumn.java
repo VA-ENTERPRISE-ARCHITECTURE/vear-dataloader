@@ -6,14 +6,24 @@ public class DatabaseColumn {
     private Long pickListTableId;
     private boolean excelColumnDataCleanup;
     private int columnSize;
+    private String mappingSQL;
 
     public DatabaseColumn(String dbColName, String dbColType, Long pickListTableId, boolean excelColumnDataCleanup,
-	    int columnSize) {
+	    int columnSize, String mappingSQL) {
 	this.dbColName = dbColName;
 	this.dbColType = dbColType;
 	this.pickListTableId = pickListTableId;
 	this.excelColumnDataCleanup = excelColumnDataCleanup;
 	this.columnSize = columnSize;
+	this.mappingSQL = mappingSQL;
+    }
+
+    public String getMappedSql() {
+	return mappingSQL;
+    }
+
+    public void setMappedSql(String mappingSQL) {
+	this.mappingSQL = mappingSQL;
     }
 
     public boolean isExcelColumnDataCleanup() {

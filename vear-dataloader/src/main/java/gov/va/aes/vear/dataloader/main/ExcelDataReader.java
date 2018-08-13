@@ -30,6 +30,7 @@ import org.jsoup.Jsoup;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import gov.va.aes.vear.dataloader.data.MappedSqlDao;
 import gov.va.aes.vear.dataloader.data.PickListDao;
 import gov.va.aes.vear.dataloader.model.DatabaseColumn;
 import gov.va.aes.vear.dataloader.model.TableAndColumnMappingInfo;
@@ -41,8 +42,11 @@ public class ExcelDataReader {
 
     @Autowired
     PickListDao pickListDao;
+    @Autowired
+    MappedSqlDao mappedSqlDao;
 
     private Map<Long, Map<String, Object>> pickListDataReverseMap = new HashMap<>();
+    private Map<String, Map<String, Object>> mappedSqlDataReverseMap = new HashMap<>();
 
     public List<Map<String, Object>> readExcelData(final String[] dataFiles,
 	    final Collection<TableAndColumnMappingInfo> tableMappingInfo)
@@ -162,6 +166,8 @@ public class ExcelDataReader {
 		} else {
 		    return new Integer(0);
 		}
+	    } else if (dbColumn.getDbColType().equals("MAPPED")) {
+		return getSqlMappedDataKey(getCellValueAsString(cell), dbColumn.getMappedSql());
 	    }
 	} catch (NullPointerException e) {
 	    return null;
@@ -169,12 +175,46 @@ public class ExcelDataReader {
 	throw new RuntimeException(" Unsupported DB Column Type in Mapping");
     }
 
-    private Object getPickListDataKey(String cellValueAsString, Long pickListTableId) {
-	Map<String, Object> pickListDataReveseMap = pickListDataReverseMap.get(pickListTableId);
-	if (pickListDataReveseMap == null) {
-	    pickListDataReveseMap = populatePickListData(pickListTableId);
+    private Object getSqlMappedDataKey(String cellValueAsString, String mappedSql) {
+	// TODO Auto-generated method stub mappedSqlDao
+	Map<String, Object> mappedSqlDataRevsMap = mappedSqlDataReverseMap.get(mappedSql);
+	if (mappedSqlDataRevsMap == null) {
+	    mappedSqlDataRevsMap = populateMappedSqlData(mappedSql);
 	}
-	return pickListDataReveseMap.get(cellValueAsString);
+	return mappedSqlDataRevsMap.get(cellValueAsString);
+    }
+
+    private Map<String, Object> populateMappedSqlData(String mappedSql) {
+	List<Map<String, Object>> mappedSqlData = mappedSqlDao.getMappedSqlData(mappedSql);
+	Map<String, Object> reverseMap = new HashMap<>();
+	String keyColumnName = null, valueColumnName = null;
+
+	for (Map<String, Object> record : mappedSqlData) {
+	    if (keyColumnName == null || valueColumnName == null) {
+		for (String recordKey : record.keySet()) {
+		    if (recordKey.endsWith("_ID")) {
+			keyColumnName = recordKey;
+
+		    } else {
+			valueColumnName = recordKey;
+		    }
+		}
+	    }
+	    LOG.log(Level.INFO, "mappedSqlData, " + valueColumnName + ": " + record.get(valueColumnName) + " - "
+		    + keyColumnName + ": " + record.get(keyColumnName));
+	    reverseMap.put((String) record.get(valueColumnName), record.get(keyColumnName));
+	}
+	mappedSqlDataReverseMap.put(mappedSql, reverseMap);
+	return reverseMap;
+
+    }
+
+    private Object getPickListDataKey(String cellValueAsString, Long pickListTableId) {
+	Map<String, Object> pickListReverseDataMap = pickListDataReverseMap.get(pickListTableId);
+	if (pickListReverseDataMap == null) {
+	    pickListReverseDataMap = populatePickListData(pickListTableId);
+	}
+	return pickListReverseDataMap.get(cellValueAsString);
 
     }
 
