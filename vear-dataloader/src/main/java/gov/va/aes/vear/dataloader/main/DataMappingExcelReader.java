@@ -49,7 +49,7 @@ public class DataMappingExcelReader {
 		String mappedTableName = cellIterator.next().getStringCellValue();
 		String mappedKeyColumn = cellIterator.next().getStringCellValue();
 		String mappedValueColumn = cellIterator.next().getStringCellValue();
-		String mappedFilterColumn = cellIterator.next().getStringCellValue();
+		String mappedFilter = cellIterator.next().getStringCellValue();
 		TableAndColumnMappingInfo tableAndColumnMappingInfo = result.get(tablename);
 		if (tableAndColumnMappingInfo == null) {
 		    tableAndColumnMappingInfo = new TableAndColumnMappingInfo();
@@ -57,7 +57,7 @@ public class DataMappingExcelReader {
 		}
 		tableAndColumnMappingInfo.addColumnMapping(excelColumnNumber, tableColName, tableColDataType,
 			pickListTableId, isExcelColumnDataCleanup, columnSize, mappedTableName, mappedKeyColumn,
-			mappedValueColumn, mappedFilterColumn);
+			mappedValueColumn, mappedFilter);
 		if (isPkCol != null && Boolean.valueOf(isPkCol)) {
 		    tableAndColumnMappingInfo.addPkColumnMapping(excelColumnNumber, tableColName, tableColDataType);
 		}

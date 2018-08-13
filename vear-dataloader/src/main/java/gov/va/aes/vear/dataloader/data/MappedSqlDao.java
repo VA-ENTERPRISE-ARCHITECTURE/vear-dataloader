@@ -18,8 +18,8 @@ public class MappedSqlDao {
     public List<Map<String, Object>> getMappedSqlData(DatabaseColumn dbColumn) {
 	String mappingDataSql = "select " + dbColumn.getMappedKeyColumn() + ", " + dbColumn.getMappedValueColumn()
 		+ " from " + dbColumn.getMappedTableName();
-	if (dbColumn.getMappedFilterColumn() != null && !dbColumn.getMappedFilterColumn().trim().equals("")) {
-	    mappingDataSql = mappingDataSql + " where " + dbColumn.getMappedFilterColumn();
+	if (dbColumn.getMappedFilter() != null && !dbColumn.getMappedFilter().trim().equals("")) {
+	    mappingDataSql = mappingDataSql + " where " + dbColumn.getMappedFilter();
 	}
 
 	return jdbcTemplate.queryForList(mappingDataSql);

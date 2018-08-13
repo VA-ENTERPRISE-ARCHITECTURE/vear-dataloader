@@ -9,11 +9,11 @@ public class DatabaseColumn {
     private String mappedTableName;
     private String mappedKeyColumn;
     private String mappedValueColumn;
-    private String mappedFilterColumn;
+    private String MappedFilter;
 
     public DatabaseColumn(String dbColName, String dbColType, Long pickListTableId, boolean excelColumnDataCleanup,
 	    int columnSize, String mappedTableName, String mappedKeyColumn, String mappedValueColumn,
-	    String mappedFilterColumn) {
+	    String mappedFilter) {
 	this.dbColName = dbColName;
 	this.dbColType = dbColType;
 	this.pickListTableId = pickListTableId;
@@ -22,7 +22,7 @@ public class DatabaseColumn {
 	this.mappedTableName = mappedTableName;
 	this.mappedKeyColumn = mappedKeyColumn;
 	this.mappedValueColumn = mappedValueColumn;
-	this.mappedFilterColumn = mappedFilterColumn;
+	this.MappedFilter = mappedFilter;
     }
 
     public String getMappedTableName() {
@@ -49,12 +49,12 @@ public class DatabaseColumn {
 	this.mappedValueColumn = mappedValueColumn;
     }
 
-    public String getMappedFilterColumn() {
-	return mappedFilterColumn;
+    public String getMappedFilter() {
+	return MappedFilter;
     }
 
-    public void setMappedFilterColumn(String mappedFilterColumn) {
-	this.mappedFilterColumn = mappedFilterColumn;
+    public void setMappedFilter(String mappedFilter) {
+	MappedFilter = mappedFilter;
     }
 
     public boolean isExcelColumnDataCleanup() {
