@@ -46,7 +46,7 @@ public class ExcelDataReader {
     MappedSqlDao mappedSqlDao;
 
     private Map<Long, Map<String, Object>> pickListDataReverseMap = new HashMap<>();
-    private Map<String, Map<String, Object>> mappedSqlDataReverseMap = new HashMap<>();
+    private Map<DatabaseColumn, Map<String, Object>> mappedSqlDataReverseMap = new HashMap<>();
 
     public List<Map<String, Object>> readExcelData(final String[] dataFiles,
 	    final Collection<TableAndColumnMappingInfo> tableMappingInfo)
@@ -167,7 +167,7 @@ public class ExcelDataReader {
 		    return new Integer(0);
 		}
 	    } else if (dbColumn.getDbColType().equals("MAPPED")) {
-		return getSqlMappedDataKey(getCellValueAsString(cell), dbColumn.getMappedSql());
+		return getSqlMappedDataKey(getCellValueAsString(cell), dbColumn);
 	    }
 	} catch (NullPointerException e) {
 	    return null;
@@ -175,36 +175,27 @@ public class ExcelDataReader {
 	throw new RuntimeException(" Unsupported DB Column Type in Mapping");
     }
 
-    private Object getSqlMappedDataKey(String cellValueAsString, String mappedSql) {
+    private Object getSqlMappedDataKey(String cellValueAsString, DatabaseColumn dbColumn) {
 	// TODO Auto-generated method stub mappedSqlDao
-	Map<String, Object> mappedSqlDataRevsMap = mappedSqlDataReverseMap.get(mappedSql);
+	Map<String, Object> mappedSqlDataRevsMap = mappedSqlDataReverseMap.get(dbColumn);
 	if (mappedSqlDataRevsMap == null) {
-	    mappedSqlDataRevsMap = populateMappedSqlData(mappedSql);
+	    mappedSqlDataRevsMap = populateMappedSqlData(dbColumn);
 	}
 	return mappedSqlDataRevsMap.get(cellValueAsString);
     }
 
-    private Map<String, Object> populateMappedSqlData(String mappedSql) {
-	List<Map<String, Object>> mappedSqlData = mappedSqlDao.getMappedSqlData(mappedSql);
+    private Map<String, Object> populateMappedSqlData(DatabaseColumn dbColumn) {
+	List<Map<String, Object>> mappedSqlData = mappedSqlDao.getMappedSqlData(dbColumn);
 	Map<String, Object> reverseMap = new HashMap<>();
-	String keyColumnName = null, valueColumnName = null;
+	String keyColumnName = dbColumn.getMappedKeyColumn(), valueColumnName = dbColumn.getMappedValueColumn();
 
 	for (Map<String, Object> record : mappedSqlData) {
-	    if (keyColumnName == null || valueColumnName == null) {
-		for (String recordKey : record.keySet()) {
-		    if (recordKey.endsWith("_ID")) {
-			keyColumnName = recordKey;
 
-		    } else {
-			valueColumnName = recordKey;
-		    }
-		}
-	    }
-	    LOG.log(Level.INFO, "mappedSqlData, " + valueColumnName + ": " + record.get(valueColumnName) + " - "
+	    LOG.log(Level.FINE, "mappedSqlData, " + valueColumnName + ": " + record.get(valueColumnName) + " - "
 		    + keyColumnName + ": " + record.get(keyColumnName));
-	    reverseMap.put((String) record.get(valueColumnName), record.get(keyColumnName));
+	    reverseMap.put(record.get(valueColumnName).toString(), record.get(keyColumnName));
 	}
-	mappedSqlDataReverseMap.put(mappedSql, reverseMap);
+	mappedSqlDataReverseMap.put(dbColumn, reverseMap);
 	return reverseMap;
 
     }

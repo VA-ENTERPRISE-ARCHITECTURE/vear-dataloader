@@ -48,13 +48,16 @@ public class TableAndColumnMappingInfo implements Serializable {
     }
 
     public void addColumnMapping(final String excelColumnNumber, String dbColName, String dbColType,
-	    Long pickListTableId, boolean excelColumnDataCleanup, int columnSize, String mappingSQL) {
-	this.columnMappings.put(excelColumnNumber, new DatabaseColumn(dbColName, dbColType, pickListTableId,
-		excelColumnDataCleanup, columnSize, mappingSQL));
+	    Long pickListTableId, boolean excelColumnDataCleanup, int columnSize, String mappedTableName,
+	    String mappedKeyColumn, String mappedValueColumn, String mappedFilterColumn) {
+	this.columnMappings.put(excelColumnNumber,
+		new DatabaseColumn(dbColName, dbColType, pickListTableId, excelColumnDataCleanup, columnSize,
+			mappedTableName, mappedKeyColumn, mappedValueColumn, mappedFilterColumn));
     }
 
     public void addPkColumnMapping(final String excelColumnNumber, String dbColName, String dbColType) {
-	this.pkColumnMappings.put(excelColumnNumber, new DatabaseColumn(dbColName, dbColType, null, false, 0, null));
+	this.pkColumnMappings.put(excelColumnNumber,
+		new DatabaseColumn(dbColName, dbColType, null, false, 0, null, null, null, null));
     }
 
 }

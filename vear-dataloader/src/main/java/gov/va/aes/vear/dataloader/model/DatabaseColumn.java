@@ -6,24 +6,55 @@ public class DatabaseColumn {
     private Long pickListTableId;
     private boolean excelColumnDataCleanup;
     private int columnSize;
-    private String mappingSQL;
+    private String mappedTableName;
+    private String mappedKeyColumn;
+    private String mappedValueColumn;
+    private String mappedFilterColumn;
 
     public DatabaseColumn(String dbColName, String dbColType, Long pickListTableId, boolean excelColumnDataCleanup,
-	    int columnSize, String mappingSQL) {
+	    int columnSize, String mappedTableName, String mappedKeyColumn, String mappedValueColumn,
+	    String mappedFilterColumn) {
 	this.dbColName = dbColName;
 	this.dbColType = dbColType;
 	this.pickListTableId = pickListTableId;
 	this.excelColumnDataCleanup = excelColumnDataCleanup;
 	this.columnSize = columnSize;
-	this.mappingSQL = mappingSQL;
+	this.mappedTableName = mappedTableName;
+	this.mappedKeyColumn = mappedKeyColumn;
+	this.mappedValueColumn = mappedValueColumn;
+	this.mappedFilterColumn = mappedFilterColumn;
     }
 
-    public String getMappedSql() {
-	return mappingSQL;
+    public String getMappedTableName() {
+	return mappedTableName;
     }
 
-    public void setMappedSql(String mappingSQL) {
-	this.mappingSQL = mappingSQL;
+    public void setMappedTableName(String mappedTableName) {
+	this.mappedTableName = mappedTableName;
+    }
+
+    public String getMappedKeyColumn() {
+	return mappedKeyColumn;
+    }
+
+    public void setMappedKeyColumn(String mappedKeyColumn) {
+	this.mappedKeyColumn = mappedKeyColumn;
+    }
+
+    public String getMappedValueColumn() {
+	return mappedValueColumn;
+    }
+
+    public void setMappedValueColumn(String mappedValueColumn) {
+	this.mappedValueColumn = mappedValueColumn;
+    }
+
+    public String getMappedFilterColumn() {
+	return mappedFilterColumn;
+    }
+
+    public void setMappedFilterColumn(String mappedFilterColumn) {
+	this.mappedFilterColumn = mappedFilterColumn;
     }
 
     public boolean isExcelColumnDataCleanup() {
