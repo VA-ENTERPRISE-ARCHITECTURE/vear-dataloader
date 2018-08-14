@@ -28,7 +28,7 @@ public class CompareRecords {
 
 	    checkAttributesChanged = !compareObject(columnValue, dbRecord.get(mapping.getValue().getDbColName()));
 	    if (checkAttributesChanged) {
-		LOG.log(Level.INFO, "Compare Data, Excel record value: " + columnValue + " - Db Record value: "
+		LOG.log(Level.FINE, "Compare Data, Excel record value: " + columnValue + " - Db Record value: "
 			+ dbRecord.get(mapping.getValue().getDbColName()));
 		break;
 	    }
