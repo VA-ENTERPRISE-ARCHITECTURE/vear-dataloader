@@ -28,7 +28,7 @@ public class CompareRecords {
 
 	    checkAttributesChanged = !compareObject(columnValue, dbRecord.get(mapping.getValue().getDbColName()));
 	    if (checkAttributesChanged) {
-		LOG.log(Level.FINE, "Compare Data, Excel record value: " + columnValue + " - Db Record value: "
+		LOG.log(Level.INFO, "Compare Data, Excel record value: " + columnValue + " - Db Record value: "
 			+ dbRecord.get(mapping.getValue().getDbColName()));
 		break;
 	    }
@@ -42,7 +42,8 @@ public class CompareRecords {
 	;
 	if (obj1 instanceof String && obj2 instanceof String)
 	    return compare((String) obj1, (String) obj2);
-	compareFlag = (obj1 == null ? obj2 == null : obj1.equals(obj2));
+	compareFlag = (obj1 == null ? obj2 == null
+		: (obj1.equals(obj2) || (obj2 != null && compareObject(obj1.toString(), obj2.toString()))));
 	return compareFlag;
     }
 

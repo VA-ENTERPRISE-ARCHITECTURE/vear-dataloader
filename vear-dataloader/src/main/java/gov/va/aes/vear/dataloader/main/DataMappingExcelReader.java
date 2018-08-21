@@ -34,9 +34,9 @@ public class DataMappingExcelReader {
 		    continue; // just skip the header row
 		}
 		Iterator<Cell> cellIterator = nextRow.cellIterator();
-		String excelColumnNumber = df.formatCellValue(cellIterator.next());
-		String tablename = cellIterator.next().getStringCellValue();
-		String tableColName = cellIterator.next().getStringCellValue();
+		String excelColumnNumber = df.formatCellValue(cellIterator.next()).trim();
+		String tablename = cellIterator.next().getStringCellValue().trim();
+		String tableColName = cellIterator.next().getStringCellValue().trim();
 		String tableColDataType = cellIterator.next().getStringCellValue();
 		Boolean isPkCol = cellIterator.next().getBooleanCellValue();
 		double pickListTableIdCellValue = cellIterator.next().getNumericCellValue();
@@ -47,6 +47,7 @@ public class DataMappingExcelReader {
 		double columnSizeCellValue = cellIterator.next().getNumericCellValue();
 		int columnSize = columnSizeCellValue == 0 ? 0 : Integer.valueOf((int) columnSizeCellValue);
 		String mappedTableName = cellIterator.next().getStringCellValue();
+		mappedTableName = mappedTableName != null ? mappedTableName.trim() : null;
 		String mappedKeyColumn = cellIterator.next().getStringCellValue();
 		String mappedValueColumn = cellIterator.next().getStringCellValue();
 		String mappedFilter = cellIterator.next().getStringCellValue();

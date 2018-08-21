@@ -170,7 +170,9 @@ public class ExcelDataReader {
 		return getSqlMappedDataKey(getCellValueAsString(cell), dbColumn);
 	    }
 	} catch (NullPointerException e) {
-	    return null;
+
+	    throw new RuntimeException(" Unsupported DB Column Type in Mapping", e);
+	    // return null;
 	}
 	throw new RuntimeException(" Unsupported DB Column Type in Mapping");
     }

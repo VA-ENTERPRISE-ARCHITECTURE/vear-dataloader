@@ -2,6 +2,8 @@ package gov.va.aes.vear.dataloader.data;
 
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -11,6 +13,8 @@ import gov.va.aes.vear.dataloader.model.DatabaseColumn;
 
 @Component
 public class MappedSqlDao {
+
+    private static final Logger LOG = Logger.getLogger(MappedSqlDao.class.getName());
 
     @Autowired
     public JdbcTemplate jdbcTemplate;
@@ -22,6 +26,7 @@ public class MappedSqlDao {
 	    mappingDataSql = mappingDataSql + " where " + dbColumn.getMappedFilter();
 	}
 
+	LOG.log(Level.FINE, "DB Mapped SQL :" + mappingDataSql);
 	return jdbcTemplate.queryForList(mappingDataSql);
     }
 

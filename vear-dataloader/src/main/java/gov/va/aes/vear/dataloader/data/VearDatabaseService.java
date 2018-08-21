@@ -89,7 +89,7 @@ public class VearDatabaseService {
 			int originalLength = ((String) columnValue).length();
 
 			columnValue = ((String) columnValue).substring(0, mapping.getValue().getColumnSize() - 5);
-			LOG.log(Level.INFO,
+			LOG.log(Level.FINE,
 				"Truncating text greater than " + mapping.getValue().getColumnSize()
 					+ " bytes. Column Name:" + mapping.getKey() + " Original: " + originalLength
 					+ "(" + originalSize + ") Truncated: " + ((String) columnValue).length() + "("
@@ -197,7 +197,7 @@ public class VearDatabaseService {
 	    dbRecords = jdbcTemplate.queryForList(sql);
 	    LOG.log(Level.FINE, "dbRecords size: " + dbRecords.size());
 	} catch (Exception e) {
-	    LOG.log(Level.SEVERE, "Unable to read records from VEAR Database.");
+	    LOG.log(Level.SEVERE, "Unable to read records from VEAR Database.", e);
 	}
 	return dbRecords;
     }
