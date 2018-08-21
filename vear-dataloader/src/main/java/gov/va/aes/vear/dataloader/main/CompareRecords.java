@@ -28,8 +28,8 @@ public class CompareRecords {
 
 	    checkAttributesChanged = !compareObject(columnValue, dbRecord.get(mapping.getValue().getDbColName()));
 	    if (checkAttributesChanged) {
-		LOG.log(Level.INFO, "Compare Data, Excel record value: " + columnValue + " - Db Record value: "
-			+ dbRecord.get(mapping.getValue().getDbColName()));
+		LOG.log(Level.INFO, "Compare NOT Matching data, Excel record value: " + columnValue
+			+ " - Db Record value: " + dbRecord.get(mapping.getValue().getDbColName()));
 		break;
 	    }
 	}

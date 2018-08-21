@@ -79,7 +79,6 @@ public class ExcelDataReader {
 		while (cellIterator.hasNext()) {
 		    Cell cell = cellIterator.next();
 		    String headerName = getCellName(cell, firstSheet).trim();
-		    // String cellValue = getCellValueAsString(cell);
 		    if (excelColNamesMap.containsKey(headerName)) {
 
 			DatabaseColumn dbColumn = excelColNamesMap.get(headerName);
@@ -103,7 +102,7 @@ public class ExcelDataReader {
 	return excelRecords;
     }
 
-    // collect headerNames to verify all columns are present
+    // collect headerColumns to verify all columns are present
     private void validateDataFileColumnsExists(Map<String, DatabaseColumn> excelColNamesMap, Row nextRow)
 	    throws ValidateException {
 	List<String> headerNamesList = new ArrayList<>();
@@ -171,14 +170,13 @@ public class ExcelDataReader {
 	    }
 	} catch (NullPointerException e) {
 
-	    throw new RuntimeException(" Unsupported DB Column Type in Mapping", e);
+	    throw new RuntimeException("getValueAsObject Error, Unsupported DB Column Type in Mapping: ", e);
 	    // return null;
 	}
 	throw new RuntimeException(" Unsupported DB Column Type in Mapping");
     }
 
     private Object getSqlMappedDataKey(String cellValueAsString, DatabaseColumn dbColumn) {
-	// TODO Auto-generated method stub mappedSqlDao
 	Map<String, Object> mappedSqlDataRevsMap = mappedSqlDataReverseMap.get(dbColumn);
 	if (mappedSqlDataRevsMap == null) {
 	    mappedSqlDataRevsMap = populateMappedSqlData(dbColumn);

@@ -37,7 +37,7 @@ public class DataMappingExcelReader {
 		String excelColumnNumber = df.formatCellValue(cellIterator.next()).trim();
 		String tablename = cellIterator.next().getStringCellValue().trim();
 		String tableColName = cellIterator.next().getStringCellValue().trim();
-		String tableColDataType = cellIterator.next().getStringCellValue();
+		String tableColDataType = cellIterator.next().getStringCellValue().trim();
 		Boolean isPkCol = cellIterator.next().getBooleanCellValue();
 		double pickListTableIdCellValue = cellIterator.next().getNumericCellValue();
 		Long pickListTableId = pickListTableIdCellValue == 0 ? null
