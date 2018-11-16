@@ -27,7 +27,13 @@ public class MappedSqlDao {
 	}
 
 	LOG.log(Level.FINE, "DB Mapped SQL :" + mappingDataSql);
-	return jdbcTemplate.queryForList(mappingDataSql);
+	LOG.log(Level.INFO, "Reading Mapping Data for column:" + dbColumn.getDbColName());
+	List<Map<String, Object>> result = jdbcTemplate.queryForList(mappingDataSql);
+	LOG.log(Level.INFO, "Finished Reading Mapping Data for column:" + dbColumn.getDbColName() + " Total Records: "
+		+ (result != null ? result.size() : 0));
+
+	return result;
+
     }
 
 }
