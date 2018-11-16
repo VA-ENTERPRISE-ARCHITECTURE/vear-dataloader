@@ -38,9 +38,11 @@ public class CompileDbRecordsNotFound {
 
 	    if (!excelRecordsMap.containsKey(dbRecordKey)) {
 		dbRecordsNotFound.add(dbRecordsMap.get(dbRecordKey));
+		LOG.log(Level.FINE, "Not Found Record Key: " + dbRecordKey);
 	    }
 
 	}
+	LOG.log(Level.FINE, "Excel Record Keys: " + excelRecordsMap.keySet());
 	// iterate dbRecordsNotFound
 	LOG.log(Level.FINE, "db Records not Found size: " + dbRecordsNotFound.size());
 	return dbRecordsNotFound;
