@@ -85,7 +85,7 @@ public class VearDataLoader {
 		procesDirectory(dirToBeProcessed);
 	    }
 	} finally {
-	    throw new RuntimeException("Throwing Exception for Rollingback.");
+	    // throw new RuntimeException("Throwing Exception for Rollingback.");
 	}
     }
 
