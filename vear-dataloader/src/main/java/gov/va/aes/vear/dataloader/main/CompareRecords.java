@@ -1,16 +1,24 @@
 package gov.va.aes.vear.dataloader.main;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import gov.va.aes.vear.dataloader.model.DatabaseColumn;
+import gov.va.aes.vear.dataloader.model.PrimaryKeyMapping;
 import gov.va.aes.vear.dataloader.model.TableAndColumnMappingInfo;
 
 @Component
 public class CompareRecords {
+
+    @Autowired
+    PrimaryKeyMapping primaryKeyMapping;
+
+    Boolean compareDbNullEqualsExcelBlank;
 
     private static final Logger LOG = Logger.getLogger(CompareRecords.class.getName());
 
@@ -18,18 +26,27 @@ public class CompareRecords {
 	    TableAndColumnMappingInfo tableAndColumnMappingInfo) {
 	boolean checkAttributesChanged = false;
 	for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getColumnMappings().entrySet()) {
+	    DatabaseColumn dbColumn = mapping.getValue();
+	    if (tableAndColumnMappingInfo.getPkColumnMappings().containsKey(dbColumn.getDbColName()))
+		continue;
 	    Object columnValue = excelRecord.get(mapping.getKey());
-	    if (mapping.getValue().getColumnSize() > 0) {
+
+	    if (dbColumn.getColumnSize() > 0) {
 		if (columnValue != null && columnValue instanceof String
-			&& ((String) columnValue).getBytes().length > mapping.getValue().getColumnSize()) {
-		    columnValue = ((String) columnValue).substring(0, mapping.getValue().getColumnSize() - 5);
+			&& ((String) columnValue).getBytes().length > dbColumn.getColumnSize()) {
+		    columnValue = ((String) columnValue).substring(0, dbColumn.getColumnSize() - 5);
 		}
 	    }
 
-	    checkAttributesChanged = !compareObject(columnValue, dbRecord.get(mapping.getValue().getDbColName()));
+	    checkAttributesChanged = !compareObject(columnValue, dbRecord.get(dbColumn.getDbColName()));
 	    if (checkAttributesChanged) {
-		LOG.log(Level.INFO, "Compare NOT Matching data, Excel record value: " + columnValue
-			+ " - Db Record value: " + dbRecord.get(mapping.getValue().getDbColName()));
+
+		String pkValueStr = primaryKeyMapping.getPKValueAsString(excelRecord,
+			Arrays.asList(tableAndColumnMappingInfo));
+		LOG.log(Level.FINE,
+			"Compare NOT Matching data for column " + dbColumn.getDbColName() + ", for Excel record ["
+				+ pkValueStr + "] value: " + columnValue + " - Db Record value: "
+				+ dbRecord.get(dbColumn.getDbColName()));
 		break;
 	    }
 	}
@@ -42,7 +59,7 @@ public class CompareRecords {
 	;
 	if (obj1 instanceof String && obj2 instanceof String)
 	    return compare((String) obj1, (String) obj2);
-	compareFlag = (obj1 == null ? obj2 == null
+	compareFlag = (!hasValue(obj1, compareDbNullEqualsExcelBlank) ? obj2 == null
 		: (obj1.equals(obj2) || (obj2 != null && compareObject(obj1.toString(), obj2.toString()))));
 	return compareFlag;
     }
@@ -52,6 +69,9 @@ public class CompareRecords {
 	str1 = cleanUp(str1);
 	str2 = cleanUp(str2);
 	compareFlag = (str1 == null ? str2 == null : str1.equals(str2));
+
+	// compareFlag = (!hasValue(str1, GlobalValues.compareDbNullEqualsExcelBlank) ?
+	// str2 == null : str1.equals(str2));
 	return compareFlag;
     }
 
@@ -60,6 +80,13 @@ public class CompareRecords {
 	    return "";
 	}
 	return str1;
+    }
+
+    private boolean hasValue(Object obj, boolean ignoreBlankString) {
+	if (ignoreBlankString && obj instanceof String && ((String) obj).equals("")) {
+	    return false;
+	}
+	return obj != null;
     }
 
 }
