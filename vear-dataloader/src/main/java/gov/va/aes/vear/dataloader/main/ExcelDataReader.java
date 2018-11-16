@@ -4,7 +4,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.Reader;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -18,6 +22,9 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.DateUtil;
@@ -45,61 +52,161 @@ public class ExcelDataReader {
     @Autowired
     MappedSqlDao mappedSqlDao;
 
+    String inputDateFormat;
+
     private Map<Long, Map<String, Object>> pickListDataReverseMap = new HashMap<>();
     private Map<DatabaseColumn, Map<String, Object>> mappedSqlDataReverseMap = new HashMap<>();
 
-    public List<Map<String, Object>> readExcelData(final String[] dataFiles,
+    public void reset() {
+	pickListDataReverseMap = new HashMap<>();
+	mappedSqlDataReverseMap = new HashMap<>();
+    }
+
+    public List<Map<String, Object>> readDataFiles(final String[] dataFiles,
 	    final Collection<TableAndColumnMappingInfo> tableMappingInfo)
 	    throws FileNotFoundException, IOException, ValidateException {
 	List<Map<String, Object>> excelRecords = new ArrayList<>();
 	for (String dataFile : dataFiles) {
-	    LOG.log(Level.INFO, "Reading Excel File : {0}", dataFile);
-	    FileInputStream inputStream = new FileInputStream(new File(dataFile));
-	    Workbook workbook = new XSSFWorkbook(inputStream);
-	    Sheet firstSheet = workbook.getSheetAt(0);
 
-	    Iterator<Row> iterator = firstSheet.iterator();
+	    if (dataFile.endsWith(".xlsx") || dataFile.endsWith(".xls")) {
+		readExelDataFile(tableMappingInfo, excelRecords, dataFile);
+	    } else if (dataFile.endsWith(".DAT")) {
+		readCSVDataFile(tableMappingInfo, excelRecords, dataFile, '|');
+	    } else if (dataFile.endsWith(".csv")) {
+		readCSVDataFile(tableMappingInfo, excelRecords, dataFile, ',');
+	    }
+	}
+	return excelRecords;
+    }
 
-	    Map<String, DatabaseColumn> excelColNamesMap = new HashMap<>();
-	    for (TableAndColumnMappingInfo tableAndColumnMappingInfo : tableMappingInfo) {
-		for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getColumnMappings()
-			.entrySet()) {
-		    excelColNamesMap.put(mapping.getKey(), mapping.getValue());
+    private void readExelDataFile(final Collection<TableAndColumnMappingInfo> tableMappingInfo,
+	    List<Map<String, Object>> excelRecords, String dataFile)
+	    throws FileNotFoundException, IOException, ValidateException {
+	LOG.log(Level.INFO, "Reading Excel File : {0}", dataFile);
+	FileInputStream inputStream = new FileInputStream(new File(dataFile));
+	Workbook workbook = new XSSFWorkbook(inputStream);
+	Sheet firstSheet = workbook.getSheetAt(0);
+
+	Iterator<Row> iterator = firstSheet.iterator();
+
+	Map<String, DatabaseColumn> excelColNamesMap = new HashMap<>();
+	for (TableAndColumnMappingInfo tableAndColumnMappingInfo : tableMappingInfo) {
+	    for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getColumnMappings().entrySet()) {
+		excelColNamesMap.put(mapping.getKey(), mapping.getValue());
+	    }
+	}
+
+	while (iterator.hasNext()) {
+	    Row nextRow = iterator.next();
+	    if (nextRow.getRowNum() == 0) {
+		validateDataFileColumnsExists(excelColNamesMap, nextRow);
+		continue; // just skip the header row
+	    }
+	    Iterator<Cell> cellIterator = nextRow.cellIterator();
+	    Map<String, Object> excelRecord = new HashMap<>();
+	    while (cellIterator.hasNext()) {
+		Cell cell = cellIterator.next();
+		String headerName = getCellName(cell, firstSheet).trim();
+		if (excelColNamesMap.containsKey(headerName)) {
+
+		    DatabaseColumn dbColumn = excelColNamesMap.get(headerName);
+		    // LOG.log(Level.FINE, "Reading Cell: " + headerName + " - type: " +
+		    // dbColumn.getDbColType());
+		    Object valueObj = getValueAsObject(cell, dbColumn);
+
+		    if (dbColumn.isExcelColumnDataCleanup()) {
+			String cleanedUpValue = cleanupValue((String) valueObj);
+			excelRecord.put(headerName, cleanedUpValue);
+		    } else {
+			excelRecord.put(headerName, valueObj);
+		    }
+
 		}
 	    }
+	    excelRecords.add(excelRecord);
+	}
+	workbook.close();
+	inputStream.close();
+    }
 
-	    while (iterator.hasNext()) {
-		Row nextRow = iterator.next();
-		if (nextRow.getRowNum() == 0) {
-		    validateDataFileColumnsExists(excelColNamesMap, nextRow);
+    private void readCSVDataFile(final Collection<TableAndColumnMappingInfo> tableMappingInfo,
+	    List<Map<String, Object>> excelRecords, String dataFile, char delimiter)
+	    throws FileNotFoundException, IOException, ValidateException {
+	LOG.log(Level.INFO, "Reading Excel File : {0}", dataFile);
+
+	Reader reader = Files.newBufferedReader(Paths.get((new File(dataFile)).getAbsolutePath()),
+		Charset.forName("ISO-8859-1"));
+
+	CSVParser csvParser = new CSVParser(reader, CSVFormat.newFormat(delimiter));
+
+	Map<String, DatabaseColumn> excelColNamesMap = new HashMap<>();
+	for (TableAndColumnMappingInfo tableAndColumnMappingInfo : tableMappingInfo) {
+	    for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getColumnMappings().entrySet()) {
+		excelColNamesMap.put(mapping.getKey(), mapping.getValue());
+	    }
+	}
+
+	long csvlineNumber = 1;
+	boolean firstLine = true;
+
+	try {
+	    for (CSVRecord csvRecord : csvParser) {
+
+		if (firstLine) {
+		    validateDataFileColumnsExists(excelColNamesMap, csvRecord);
+		    firstLine = false;
 		    continue; // just skip the header row
 		}
-		Iterator<Cell> cellIterator = nextRow.cellIterator();
-		Map<String, Object> excelRecord = new HashMap<>();
-		while (cellIterator.hasNext()) {
-		    Cell cell = cellIterator.next();
-		    String headerName = getCellName(cell, firstSheet).trim();
-		    if (excelColNamesMap.containsKey(headerName)) {
 
-			DatabaseColumn dbColumn = excelColNamesMap.get(headerName);
-			LOG.log(Level.FINE, "Reading Cell: " + headerName + " - type: " + dbColumn.getDbColType());
+		Map<String, Object> excelRecord = new HashMap<>();
+		for (int i = 0; i < csvRecord.size(); i++) {
+		    String iStr = String.valueOf(i);
+		    if (excelColNamesMap.containsKey(iStr)) {
+			DatabaseColumn dbColumn = excelColNamesMap.get(iStr);
+			String cell = csvRecord.get(i);
 			Object valueObj = getValueAsObject(cell, dbColumn);
 
 			if (dbColumn.isExcelColumnDataCleanup()) {
 			    String cleanedUpValue = cleanupValue((String) valueObj);
-			    excelRecord.put(headerName, cleanedUpValue);
+			    excelRecord.put(iStr, cleanedUpValue);
 			} else {
-			    excelRecord.put(headerName, valueObj);
+			    excelRecord.put(iStr, valueObj);
 			}
-
 		    }
 		}
+
 		excelRecords.add(excelRecord);
+		csvlineNumber++;
+
 	    }
-	    workbook.close();
-	    inputStream.close();
+	} catch (Exception e) {
+	    LOG.log(Level.INFO, "Last Processed CSV Record : " + csvlineNumber);
+	    LOG.log(Level.SEVERE, "CSV Parsing Failed : ", e);
+	    throw e;
+	} finally {
+	    csvParser.close();
 	}
-	return excelRecords;
+
+    }
+
+    private void validateDataFileColumnsExists(Map<String, DatabaseColumn> excelColNamesMap, CSVRecord csvRecord)
+	    throws ValidateException {
+	List<String> headerNamesList = new ArrayList<>();
+
+	for (int i = 0; i < csvRecord.size(); i++) {
+
+	    headerNamesList.add(String.valueOf(i));
+	}
+	Set<String> headerNamesSet = excelColNamesMap.keySet();
+
+	for (String mappingHeaderName : headerNamesSet) {
+	    if (!headerNamesList.contains(mappingHeaderName)) {
+		throw new ValidateException("Invalid Input Data File. Header Name \"" + mappingHeaderName
+			+ "\" does not exist in Excel file.");
+
+	    }
+	}
+
     }
 
     // collect headerColumns to verify all columns are present
@@ -148,7 +255,8 @@ public class ExcelDataReader {
 		if (cell.getCellType() == XSSFCell.CELL_TYPE_STRING) {
 		    String dateStr = getCellValueAsString(cell);
 		    try {
-			return new Timestamp(new SimpleDateFormat("MM/dd/yyyy").parse(dateStr).getTime());
+
+			return new Timestamp(new SimpleDateFormat(inputDateFormat).parse(dateStr).getTime());
 		    } catch (ParseException e) {
 			return null;
 		    }
@@ -167,6 +275,44 @@ public class ExcelDataReader {
 		}
 	    } else if (dbColumn.getDbColType().equals("MAPPED")) {
 		return getSqlMappedDataKey(getCellValueAsString(cell), dbColumn);
+	    }
+	} catch (NullPointerException e) {
+
+	    throw new RuntimeException("getValueAsObject Error, Unsupported DB Column Type in Mapping: ", e);
+	    // return null;
+	}
+	throw new RuntimeException(" Unsupported DB Column Type in Mapping");
+    }
+
+    private Object getValueAsObject(String cell, DatabaseColumn dbColumn) {
+
+	try {
+	    if (dbColumn.getDbColType().equals("TEXT")) {
+		return cell;
+	    } else if (dbColumn.getDbColType().equals("NUMBER")) {
+
+		return cell == null || "".equals(cell) ? null : new BigDecimal(cell);
+	    } else if (dbColumn.getDbColType().equals("DATE")) {
+
+		if (cell == null)
+		    return null;
+		try {
+		    return new Timestamp(new SimpleDateFormat(inputDateFormat).parse(cell).getTime());
+		} catch (ParseException e) {
+		    return null;
+		}
+
+	    } else if (dbColumn.getDbColType().equals("PICKLIST")) {
+		return getPickListDataKey(cell, dbColumn.getPickListTableId());
+	    } else if (dbColumn.getDbColType().equals("BOOLEAN")) {
+		String boolStr = cell;
+		if ("TRUE".equals(boolStr)) {
+		    return new Integer(1);
+		} else {
+		    return new Integer(0);
+		}
+	    } else if (dbColumn.getDbColType().equals("MAPPED")) {
+		return getSqlMappedDataKey(cell, dbColumn);
 	    }
 	} catch (NullPointerException e) {
 
@@ -236,12 +382,14 @@ public class ExcelDataReader {
 		break;
 	    case Cell.CELL_TYPE_NUMERIC:
 		if (DateUtil.isCellDateFormatted(cell)) {
-		    SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yyyy");
+		    SimpleDateFormat dateFormat = new SimpleDateFormat(inputDateFormat);
 		    strCellValue = dateFormat.format(cell.getDateCellValue());
 		} else {
-		    Double value = cell.getNumericCellValue();
-		    Long longValue = value.longValue();
-		    strCellValue = new String(longValue.toString());
+		    strCellValue = cell.toString();
+		    /*
+		     * Double value = cell.getNumericCellValue(); Long longValue =
+		     * value.longValue(); strCellValue = new String(value.toString());
+		     */
 		}
 		break;
 	    case Cell.CELL_TYPE_BOOLEAN:
