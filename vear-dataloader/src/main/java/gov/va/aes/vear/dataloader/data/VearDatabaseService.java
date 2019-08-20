@@ -217,6 +217,15 @@ public class VearDatabaseService {
     }
 
     public void insertOrUpdateBatch(String sql, List<List<Object>> paramsList) {
+
+	// for (List<Object> params : paramsList) {
+	// try {
+	// jdbcTemplate.update(sql, params.toArray(new Object[params.size()]));
+	// } catch (DataAccessException e) {
+	// LOG.log(Level.INFO, "params=" + params);
+	// }
+	// }
+
 	jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
 
 	    @Override

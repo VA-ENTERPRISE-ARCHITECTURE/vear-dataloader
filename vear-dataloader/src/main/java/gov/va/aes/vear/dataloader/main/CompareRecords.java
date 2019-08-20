@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import gov.va.aes.vear.dataloader.model.DatabaseColumn;
+import gov.va.aes.vear.dataloader.model.InvalidPKValueException;
 import gov.va.aes.vear.dataloader.model.PrimaryKeyMapping;
 import gov.va.aes.vear.dataloader.model.TableAndColumnMappingInfo;
 
@@ -30,19 +31,29 @@ public class CompareRecords {
 	    if (tableAndColumnMappingInfo.getPkColumnMappings().containsKey(dbColumn.getDbColName()))
 		continue;
 	    Object columnValue = excelRecord.get(mapping.getKey());
-
+	    String pkValueStr = null;
+	    try {
+		pkValueStr = primaryKeyMapping.getPKValueAsString(excelRecord,
+			Arrays.asList(tableAndColumnMappingInfo));
+	    } catch (InvalidPKValueException e) {
+		LOG.log(Level.SEVERE, "Exception in checkAttributesChanged method ", e.getMessage());
+		e.printStackTrace();
+	    }
 	    if (dbColumn.getColumnSize() > 0) {
 		if (columnValue != null && columnValue instanceof String
 			&& ((String) columnValue).getBytes().length > dbColumn.getColumnSize()) {
-		    columnValue = ((String) columnValue).substring(0, dbColumn.getColumnSize() - 5);
+
+		    String truncatedColumnVal = ((String) columnValue).substring(0, dbColumn.getColumnSize() - 5);
+		    LOG.log(Level.INFO,
+			    "Truncated Text for column " + dbColumn.getDbColName() + ", for Excel record [" + pkValueStr
+				    + "] value, Before Truncation: " + columnValue.toString() + ", After Truncation: "
+				    + truncatedColumnVal);
+		    columnValue = truncatedColumnVal;
 		}
 	    }
 
 	    checkAttributesChanged = !compareObject(columnValue, dbRecord.get(dbColumn.getDbColName()));
 	    if (checkAttributesChanged) {
-
-		String pkValueStr = primaryKeyMapping.getPKValueAsString(excelRecord,
-			Arrays.asList(tableAndColumnMappingInfo));
 		LOG.log(Level.FINE,
 			"Compare NOT Matching data for column " + dbColumn.getDbColName() + ", for Excel record ["
 				+ pkValueStr + "] value: " + columnValue + " - Db Record value: "

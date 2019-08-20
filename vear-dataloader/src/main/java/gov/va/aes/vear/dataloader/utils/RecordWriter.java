@@ -142,13 +142,14 @@ public class RecordWriter {
 			rowValuesList.add("");
 		    }
 		}
+		// write the records to workbook.
 		csvPrinter.printRecord(rowValuesList.toArray(new Object[rowValuesList.size()]));
 
 	    }
 	    rowNumb++;
 	}
 
-	// write this workbook to an Output stream.
+	// close the writer.
 	csvPrinter.close();
 	writer.close();
     }

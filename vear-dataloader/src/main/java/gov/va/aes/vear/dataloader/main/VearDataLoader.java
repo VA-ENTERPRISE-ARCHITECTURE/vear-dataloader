@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import gov.va.aes.vear.dataloader.configuration.ProjectConfig;
 import gov.va.aes.vear.dataloader.data.VearDatabaseService;
+import gov.va.aes.vear.dataloader.model.InvalidPKValueException;
 import gov.va.aes.vear.dataloader.model.PrimaryKeyMapping;
 import gov.va.aes.vear.dataloader.model.TableAndColumnMappingInfo;
 import gov.va.aes.vear.dataloader.utils.PrintUtils;
@@ -155,6 +156,7 @@ public class VearDataLoader {
 	List<Map<String, Object>> recordsUpdated = new ArrayList<>();
 	List<Map<String, Object>> diffRecords = new ArrayList<>();
 	List<Map<String, Object>> recordsInserted = new ArrayList<>();
+	List<Map<String, Object>> recordsInvalid = new ArrayList<>();
 	List<Map<String, Object>> recordsFailingUpdate = new ArrayList<>();
 	List<Map<String, Object>> recordsFailingInsert = new ArrayList<>();
 	List<Map<String, Object>> dbRecordsNotFound = new ArrayList<>();
@@ -162,14 +164,25 @@ public class VearDataLoader {
 	long updateBatchSize = 1000;
 	try {
 
-	    List<Map<String, Object>> excelRecords = excelDataReader.readDataFiles(dataFiles, tableMappingInfo);
+	    List<Map<String, Object>> excelRecords = new ArrayList<>();
+	    List<Map<String, Object>> rawExcelRecords = new ArrayList<>();
+	    excelDataReader.readDataFiles(dataFiles, tableMappingInfo, excelRecords, rawExcelRecords);
 	    TotalInputRecordsCount = excelRecords.size();
 	    LOG.log(Level.INFO, "Finished reading excel records. Total : " + TotalInputRecordsCount + " records");
 	    // creating excelRecordsMap from the excelRecords list
 	    HashMap<String, Map<String, Object>> excelRecordsMap = new HashMap<String, Map<String, Object>>();
-	    for (Map<String, Object> excelRecord : excelRecords) {
+	    // for (Map<String, Object> excelRecord : excelRecords) {
+	    for (int i = 0; i < excelRecords.size(); i++) {
+		Map<String, Object> excelRecord = excelRecords.get(i);
+		String pkValueStr = null;
+		try {
+		    pkValueStr = primaryKeyMapping.getPKValueAsString(excelRecord, tableMappingInfo);
+		} catch (Exception e) {
+		    recordsInvalid.add(rawExcelRecords.get(i));
+		    LOG.log(Level.INFO, "Invalid Raw Excel Record : " + rawExcelRecords.get(i).toString());
 
-		String pkValueStr = primaryKeyMapping.getPKValueAsString(excelRecord, tableMappingInfo);
+		    continue;
+		}
 		excelRecordsMap.put(pkValueStr, excelRecord);
 
 	    }
@@ -194,80 +207,121 @@ public class VearDataLoader {
 		List<Map<String, Object>> recordsUpdatedInBatch = new ArrayList<>();
 
 		for (Map<String, Object> excelRecord : excelRecords) {
+		    try {
+			String pkString = primaryKeyMapping.getPKValueAsString(excelRecord, tableMappingInfo);
 
-		    Map<String, Object> dbRecord = dbRecordsMap
-			    .get(primaryKeyMapping.getPKValueAsString(excelRecord, tableMappingInfo));
+			Map<String, Object> dbRecord = dbRecordsMap.get(pkString);
 
-		    if (dbRecord != null) {
-			if (compareRecords.checkAttributesChanged(excelRecord, dbRecord, tableAndColumnMappingInfo)) {
-			    LOG.log(Level.FINE, "Changes found  Excel Record: " + excelRecord.toString() + " DB Record:"
-				    + dbRecord.toString());
+			// if( validateRecord(excelRecord, primaryKeyMapping)==true){
 
-			    List<Object> params = vearDatabaseService.getDbRecordUpdateParams(excelRecord,
-				    tableAndColumnMappingInfo);
-			    recordsUpdatedInBatch.add(dbRecord);
-			    diffRecords.add(excelRecord);
-			    diffRecords.add(dbRecord);
+			if (dbRecord != null) {
+			    // LOG.log(Level.INFO, "primary Key Mapping value for DB Updates: " + pkString);
+			    if (compareRecords.checkAttributesChanged(excelRecord, dbRecord,
+				    tableAndColumnMappingInfo)) {
+				LOG.log(Level.FINE, "Changes found  Excel Record: " + excelRecord.toString()
+					+ " DB Record:" + dbRecord.toString());
 
-			    recordsUpdateCount++;
-			    updateParamsList.add(params);
+				List<Object> params = vearDatabaseService.getDbRecordUpdateParams(excelRecord,
+					tableAndColumnMappingInfo);
+				recordsUpdatedInBatch.add(dbRecord);
+				diffRecords.add(excelRecord);
+				diffRecords.add(dbRecord);
 
-			    if (updateParamsList.size() >= updateBatchSize) {
-				LOG.log(Level.INFO,
-					"Starting batch Update of batch : " + (recordsUpdateCount / updateBatchSize));
-				try {
-				    vearDatabaseService.insertOrUpdateBatch(updateSQL, updateParamsList);
-				    recordsUpdated.addAll(recordsUpdatedInBatch);
-				} catch (Exception e) {
-				    LOG.log(Level.SEVERE, "Failed to update records for batch: "
-					    + (recordsUpdateCount / updateBatchSize), e);
-				    recordsFailingUpdate.addAll(recordsUpdatedInBatch);
-				} finally {
-				    updateParamsList.clear();
-				    recordsUpdatedInBatch.clear();
+				recordsUpdateCount++;
+				updateParamsList.add(params);
+
+				if (updateParamsList.size() >= updateBatchSize) {
+				    LOG.log(Level.INFO, "Starting batch Update of batch : "
+					    + (recordsUpdateCount / updateBatchSize));
+				    try {
+					vearDatabaseService.insertOrUpdateBatch(updateSQL, updateParamsList);
+					recordsUpdated.addAll(recordsUpdatedInBatch);
+				    } catch (Exception e) {
+					LOG.log(Level.INFO,
+						"Failed to update records in batch, processing individual records ");
+					// recordsFailingUpdate.addAll(recordsUpdatedInBatch);
+					for (int k = 0; k < recordsUpdatedInBatch.size(); k++) {
+					    Map<String, Object> excelRecordForUpdate = recordsUpdatedInBatch.get(k);
+					    try {
+
+						vearDatabaseService.processDbRecordUpdate(excelRecordForUpdate,
+							tableAndColumnMappingInfo);
+						recordsUpdated.add(excelRecordForUpdate);
+
+					    } catch (Exception e1) {
+						recordsFailingUpdate.add(excelRecordForUpdate);
+						LOG.log(Level.SEVERE,
+							"Failed to update record: " + excelRecordForUpdate);
+						// e1.printStackTrace();
+					    }
+					}
+				    } finally {
+					updateParamsList.clear();
+					recordsUpdatedInBatch.clear();
+				    }
+
 				}
+				// vearDatabaseService.processDbRecordUpdate( excelRecord,
+				// tableAndColumnMappingInfo);
+
+			    } else {
+				LOG.log(Level.FINE, "Skipping Record as no changes found: " + excelRecord.toString());
+				recordsMatchCount++;
 
 			    }
-			    // vearDatabaseService.processDbRecordUpdate( excelRecord,
-			    // tableAndColumnMappingInfo);
+			} else { // No record in DB Insert New record.
+			    // LOG.log(Level.INFO, "primary Key Mapping value for DB Inserts: " + pkString);
+			    recordsInsertedInBatch.add(excelRecord);
 
-			} else {
-			    LOG.log(Level.FINE, "Skipping Record as no changes found: " + excelRecord.toString());
-			    recordsMatchCount++;
+			    if (!avoidVearDbInserts) {
+				recordsInsertCount++;
+				List<Object> params = vearDatabaseService.getDbRecordInsertParams(excelRecord,
+					tableAndColumnMappingInfo);
+				insertParamsList.add(params);
 
-			}
-		    } else { // No record in DB Insert New record.
-			recordsInsertedInBatch.add(excelRecord);
+				if (insertParamsList.size() >= insertBatchSize) {
+				    LOG.log(Level.INFO, "Starting batch Insert of batch : "
+					    + (recordsInsertCount / insertBatchSize));
+				    try {
+					vearDatabaseService.insertOrUpdateBatch(insertSQL, insertParamsList);
+					recordsInserted.addAll(recordsInsertedInBatch);
+				    } catch (Exception e) {
+					LOG.log(Level.INFO,
+						"Failed to insert records in batch, processing individual records ");
+					// recordsFailingInsert.addAll(recordsInsertedInBatch);
+					for (int k = 0; k < recordsInsertedInBatch.size(); k++) {
+					    Map<String, Object> excelRecordForInsert = recordsInsertedInBatch.get(k);
+					    try {
 
-			if (!avoidVearDbInserts) {
-			    recordsInsertCount++;
-			    List<Object> params = vearDatabaseService.getDbRecordInsertParams(excelRecord,
-				    tableAndColumnMappingInfo);
-			    insertParamsList.add(params);
-
-			    if (insertParamsList.size() >= insertBatchSize) {
-				LOG.log(Level.INFO,
-					"Starting batch Insert of batch : " + (recordsInsertCount / insertBatchSize));
-				try {
-				    vearDatabaseService.insertOrUpdateBatch(insertSQL, insertParamsList);
-				    recordsInserted.addAll(recordsInsertedInBatch);
-				} catch (Exception e) {
-				    LOG.log(Level.SEVERE, "Failed to insert records for batch: "
-					    + (recordsInsertCount / insertBatchSize), e);
-				    recordsFailingInsert.addAll(recordsInsertedInBatch);
-				} finally {
-				    insertParamsList.clear();
-				    recordsInsertedInBatch.clear();
+						vearDatabaseService.processDbRecordInsert(excelRecordForInsert,
+							tableAndColumnMappingInfo);
+						recordsInserted.add(excelRecordForInsert);
+					    } catch (Exception e1) {
+						recordsFailingInsert.add(excelRecordForInsert);
+						LOG.log(Level.SEVERE,
+							"Failed to insert record: " + excelRecordForInsert);
+						// e1.printStackTrace();
+					    }
+					}
+				    } finally {
+					insertParamsList.clear();
+					recordsInsertedInBatch.clear();
+				    }
 				}
+				// vearDatabaseService.processDbRecordInsert(excelRecord,
+				// tableAndColumnMappingInfo);
+
 			    }
-			    // vearDatabaseService.processDbRecordInsert(excelRecord,
-			    // tableAndColumnMappingInfo);
 
 			}
-
+		    } catch (InvalidPKValueException e) {
+			// Add excelRecord to invalid records
 		    }
 
-		}
+		} // else {
+		  // invalidRecords.add()
+
+		// }
 
 		if (updateParamsList.size() > 0) {
 
@@ -276,8 +330,21 @@ public class VearDataLoader {
 			vearDatabaseService.insertOrUpdateBatch(updateSQL, updateParamsList);
 			recordsUpdated.addAll(recordsUpdatedInBatch);
 		    } catch (Exception e) {
-			LOG.log(Level.SEVERE, "Failed to update records for last batch: ", e);
-			recordsFailingUpdate.addAll(recordsUpdatedInBatch);
+			LOG.log(Level.INFO, "Failed to update records for last batch, processing individual records ");
+			// recordsFailingUpdate.addAll(recordsUpdatedInBatch);
+
+			for (int k = 0; k < recordsUpdatedInBatch.size(); k++) {
+			    Map<String, Object> excelRecordForLastUpdate = recordsUpdatedInBatch.get(k);
+			    try {
+				vearDatabaseService.processDbRecordUpdate(excelRecordForLastUpdate,
+					tableAndColumnMappingInfo);
+				recordsUpdated.add(excelRecordForLastUpdate);
+			    } catch (Exception e1) {
+				recordsFailingUpdate.add(excelRecordForLastUpdate);
+				LOG.log(Level.SEVERE, "Failed to update record: " + excelRecordForLastUpdate);
+				// e1.printStackTrace();
+			    }
+			}
 		    } finally {
 			updateParamsList.clear();
 			recordsUpdatedInBatch.clear();
@@ -291,8 +358,20 @@ public class VearDataLoader {
 			vearDatabaseService.insertOrUpdateBatch(insertSQL, insertParamsList);
 			recordsInserted.addAll(recordsInsertedInBatch);
 		    } catch (Exception e) {
-			LOG.log(Level.SEVERE, "Failed to insert records for last batch: ", e);
-			recordsFailingInsert.addAll(recordsInsertedInBatch);
+			LOG.log(Level.INFO, "Failed to insert records for last batch, processing individual records ");
+			// recordsFailingInsert.addAll(recordsInsertedInBatch);
+			for (int k = 0; k < recordsInsertedInBatch.size(); k++) {
+			    Map<String, Object> excelRecordForLastInsert = recordsInsertedInBatch.get(k);
+			    try {
+				vearDatabaseService.processDbRecordInsert(excelRecordForLastInsert,
+					tableAndColumnMappingInfo);
+				recordsInserted.add(excelRecordForLastInsert);
+			    } catch (Exception e1) {
+				recordsFailingInsert.add(excelRecordForLastInsert);
+				LOG.log(Level.SEVERE, "Failed to insert record: " + excelRecordForLastInsert);
+				// e1.printStackTrace();
+			    }
+			}
 		    } finally {
 			insertParamsList.clear();
 			recordsInsertedInBatch.clear();
@@ -302,6 +381,13 @@ public class VearDataLoader {
 			"INPUT_Record", "VEAR_Record", false, true);
 		recordWriter.writeCSVOutput(recordsInserted, tableAndColumnMappingInfo, projectName + "/ETL_INSERTS_",
 			null, null, false, false);
+		// Writing failed records
+		recordWriter.writeCSVOutput(recordsInvalid, tableAndColumnMappingInfo,
+			projectName + "/ETL_INVALID_RECORDS_", null, null, false, false);
+
+		// Writing Invalid records
+		// recordWriter.writeCSVOutput(invalidRecords, tableAndColumnMappingInfo,
+		// projectName + "/ETL_INSERTS_Failed", null, null, false, false);
 
 		// compile VEAR Records Not Found in Input ETL files
 		dbRecordsNotFound = compileDbRecordsNotFound.compileDbRecordsForDeletion(excelRecordsMap, dbRecordsMap);
@@ -309,7 +395,7 @@ public class VearDataLoader {
 			projectName + "/RECORDS_FLAGGED_FOR_DELETION_", null, null, true, true);
 		PrintUtils.printSummaryReport(projectName, avoidVearDbInserts, TotalInputRecordsCount,
 			recordsUpdateCount, recordsInsertCount, recordsMatchCount, recordsUpdated, diffRecords,
-			recordsInserted, recordsFailingUpdate, recordsFailingInsert, dbRecordsNotFound);
+			recordsInserted, recordsFailingUpdate, recordsFailingInsert, dbRecordsNotFound, recordsInvalid);
 	    }
 	} catch (Exception e) {
 	    LOG.log(Level.SEVERE, "VEAR DATA LOADER Failed for " + projectName, e);

@@ -14,14 +14,20 @@ public class PrimaryKeyMapping {
     private static final Logger LOG = Logger.getLogger(PrimaryKeyMapping.class.getName());
 
     public String getPKValueAsString(Map<String, Object> excelRecord,
-	    Collection<TableAndColumnMappingInfo> tableMappingInfo) {
+	    Collection<TableAndColumnMappingInfo> tableMappingInfo) throws InvalidPKValueException {
 	List<Object> pkValuesList = new ArrayList<>();
 	for (TableAndColumnMappingInfo tableAndColumnMappingInfo : tableMappingInfo) {
 
 	    for (Map.Entry<String, DatabaseColumn> mapping : tableAndColumnMappingInfo.getPkColumnMappings()
 		    .entrySet()) {
 
-		pkValuesList.add(excelRecord.get(mapping.getKey()));
+		Object keyVal = excelRecord.get(mapping.getKey());
+		if (keyVal == null) {
+		    // LOG.log(Level.INFO, "Invalid Excel Record : " + excelRecord.toString());
+		    throw new InvalidPKValueException("Invalid value for PK Key:" + mapping.getKey());
+
+		}
+		pkValuesList.add(keyVal);
 	    }
 
 	}

@@ -3,6 +3,7 @@ package gov.va.aes.vear.dataloader.main;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -62,25 +63,24 @@ public class ExcelDataReader {
 	mappedSqlDataReverseMap = new HashMap<>();
     }
 
-    public List<Map<String, Object>> readDataFiles(final String[] dataFiles,
-	    final Collection<TableAndColumnMappingInfo> tableMappingInfo)
+    public void readDataFiles(final String[] dataFiles, final Collection<TableAndColumnMappingInfo> tableMappingInfo,
+	    List<Map<String, Object>> excelRecords, List<Map<String, Object>> rawExcelRecords)
 	    throws FileNotFoundException, IOException, ValidateException {
-	List<Map<String, Object>> excelRecords = new ArrayList<>();
+
 	for (String dataFile : dataFiles) {
 
 	    if (dataFile.endsWith(".xlsx") || dataFile.endsWith(".xls")) {
-		readExelDataFile(tableMappingInfo, excelRecords, dataFile);
+		readExelDataFile(tableMappingInfo, excelRecords, rawExcelRecords, dataFile);
 	    } else if (dataFile.endsWith(".DAT")) {
-		readCSVDataFile(tableMappingInfo, excelRecords, dataFile, '|');
+		readCSVDataFile(tableMappingInfo, excelRecords, rawExcelRecords, dataFile, '|');
 	    } else if (dataFile.endsWith(".csv")) {
-		readCSVDataFile(tableMappingInfo, excelRecords, dataFile, ',');
+		readCSVDataFile(tableMappingInfo, excelRecords, rawExcelRecords, dataFile, ',');
 	    }
 	}
-	return excelRecords;
     }
 
     private void readExelDataFile(final Collection<TableAndColumnMappingInfo> tableMappingInfo,
-	    List<Map<String, Object>> excelRecords, String dataFile)
+	    List<Map<String, Object>> excelRecords, List<Map<String, Object>> rawExcelRecords, String dataFile)
 	    throws FileNotFoundException, IOException, ValidateException {
 	LOG.log(Level.INFO, "Reading Excel File : {0}", dataFile);
 	FileInputStream inputStream = new FileInputStream(new File(dataFile));
@@ -104,6 +104,7 @@ public class ExcelDataReader {
 	    }
 	    Iterator<Cell> cellIterator = nextRow.cellIterator();
 	    Map<String, Object> excelRecord = new HashMap<>();
+	    Map<String, Object> rawExcelRecord = new HashMap<>();
 	    while (cellIterator.hasNext()) {
 		Cell cell = cellIterator.next();
 		String headerName = getCellName(cell, firstSheet).trim();
@@ -112,6 +113,8 @@ public class ExcelDataReader {
 		    DatabaseColumn dbColumn = excelColNamesMap.get(headerName);
 		    // LOG.log(Level.FINE, "Reading Cell: " + headerName + " - type: " +
 		    // dbColumn.getDbColType());
+		    String rawValue = getCellValueAsString(cell);
+		    rawExcelRecord.put(headerName, rawValue);
 		    Object valueObj = getValueAsObject(cell, dbColumn);
 
 		    if (dbColumn.isExcelColumnDataCleanup()) {
@@ -124,20 +127,23 @@ public class ExcelDataReader {
 		}
 	    }
 	    excelRecords.add(excelRecord);
+	    rawExcelRecords.add(rawExcelRecord);
 	}
 	workbook.close();
 	inputStream.close();
     }
 
     private void readCSVDataFile(final Collection<TableAndColumnMappingInfo> tableMappingInfo,
-	    List<Map<String, Object>> excelRecords, String dataFile, char delimiter)
-	    throws FileNotFoundException, IOException, ValidateException {
+	    List<Map<String, Object>> excelRecords, List<Map<String, Object>> rawExcelRecords, String dataFile,
+	    char delimiter) throws FileNotFoundException, IOException, ValidateException {
 	LOG.log(Level.INFO, "Reading Excel File : {0}", dataFile);
 
 	Reader reader = Files.newBufferedReader(Paths.get((new File(dataFile)).getAbsolutePath()),
 		Charset.forName("ISO-8859-1"));
-
 	CSVParser csvParser = new CSVParser(reader, CSVFormat.newFormat(delimiter));
+
+	// CSVParser csvParser = new CSVParser(reader,
+	// CSVFormat.DEFAULT.withDelimiter(delimiter).withEscape('\\'));
 
 	Map<String, DatabaseColumn> excelColNamesMap = new HashMap<>();
 	for (TableAndColumnMappingInfo tableAndColumnMappingInfo : tableMappingInfo) {
@@ -159,11 +165,13 @@ public class ExcelDataReader {
 		}
 
 		Map<String, Object> excelRecord = new HashMap<>();
+		Map<String, Object> rawExcelRecord = new HashMap<>();
 		for (int i = 0; i < csvRecord.size(); i++) {
 		    String iStr = String.valueOf(i);
 		    if (excelColNamesMap.containsKey(iStr)) {
 			DatabaseColumn dbColumn = excelColNamesMap.get(iStr);
 			String cell = csvRecord.get(i);
+			rawExcelRecord.put(iStr, cell);
 			Object valueObj = getValueAsObject(cell, dbColumn);
 
 			if (dbColumn.isExcelColumnDataCleanup()) {
@@ -176,8 +184,9 @@ public class ExcelDataReader {
 		}
 
 		excelRecords.add(excelRecord);
+		rawExcelRecords.add(rawExcelRecord);
+		// LOG.log(Level.INFO, "Last Processed CSV Record : " + csvlineNumber); //debug
 		csvlineNumber++;
-
 	    }
 	} catch (Exception e) {
 	    LOG.log(Level.INFO, "Last Processed CSV Record : " + csvlineNumber);
@@ -247,13 +256,14 @@ public class ExcelDataReader {
     private Object getValueAsObject(Cell cell, DatabaseColumn dbColumn) {
 	DataFormatter df = new DataFormatter();
 	try {
+	    String cellValueAsString = getCellValueAsString(cell);
 	    if (dbColumn.getDbColType().equals("TEXT")) {
-		return getCellValueAsString(cell);
+		return cellValueAsString;
 	    } else if (dbColumn.getDbColType().equals("NUMBER")) {
 		return new BigDecimal(df.formatCellValue(cell));
 	    } else if (dbColumn.getDbColType().equals("DATE")) {
 		if (cell.getCellType() == XSSFCell.CELL_TYPE_STRING) {
-		    String dateStr = getCellValueAsString(cell);
+		    String dateStr = cellValueAsString;
 		    try {
 
 			return new Timestamp(new SimpleDateFormat(inputDateFormat).parse(dateStr).getTime());
@@ -261,20 +271,24 @@ public class ExcelDataReader {
 			return null;
 		    }
 		} else {
-		    return new Timestamp(cell.getDateCellValue().getTime());
+		    try {
+			return new Timestamp(cell.getDateCellValue().getTime());
+		    } catch (NullPointerException e) {
+			return null;
+		    }
 		}
 
 	    } else if (dbColumn.getDbColType().equals("PICKLIST")) {
-		return getPickListDataKey(getCellValueAsString(cell), dbColumn.getPickListTableId());
+		return getPickListDataKey(cellValueAsString, dbColumn.getPickListTableId());
 	    } else if (dbColumn.getDbColType().equals("BOOLEAN")) {
-		String boolStr = getCellValueAsString(cell);
-		if (boolStr.equals("TRUE")) {
+		String boolStr = cellValueAsString;
+		if ("TRUE".equalsIgnoreCase(boolStr) || "YES".equalsIgnoreCase(boolStr)) {
 		    return new Integer(1);
 		} else {
 		    return new Integer(0);
 		}
 	    } else if (dbColumn.getDbColType().equals("MAPPED")) {
-		return getSqlMappedDataKey(getCellValueAsString(cell), dbColumn);
+		return getSqlMappedDataKey(cellValueAsString, dbColumn);
 	    }
 	} catch (NullPointerException e) {
 
@@ -306,7 +320,7 @@ public class ExcelDataReader {
 		return getPickListDataKey(cell, dbColumn.getPickListTableId());
 	    } else if (dbColumn.getDbColType().equals("BOOLEAN")) {
 		String boolStr = cell;
-		if ("TRUE".equals(boolStr)) {
+		if ("TRUE".equalsIgnoreCase(boolStr) || "YES".equalsIgnoreCase(boolStr)) {
 		    return new Integer(1);
 		} else {
 		    return new Integer(0);
@@ -323,11 +337,18 @@ public class ExcelDataReader {
     }
 
     private Object getSqlMappedDataKey(String cellValueAsString, DatabaseColumn dbColumn) {
+	String cellValue = cellValueAsString;
 	Map<String, Object> mappedSqlDataRevsMap = mappedSqlDataReverseMap.get(dbColumn);
 	if (mappedSqlDataRevsMap == null) {
 	    mappedSqlDataRevsMap = populateMappedSqlData(dbColumn);
 	}
-	return mappedSqlDataRevsMap.get(cellValueAsString);
+	if ((dbColumn.getDbColName().equalsIgnoreCase("FILE_NUMBER")
+		|| dbColumn.getDbColName().equalsIgnoreCase("FIELD_NUMBER")
+		|| dbColumn.getDbColName().equalsIgnoreCase("PARENT_FILE")
+		|| dbColumn.getMappedValueColumn().equalsIgnoreCase("FILE_NUMBER")) && cellValue.startsWith(".")) {
+	    cellValue = "0" + cellValue;
+	}
+	return mappedSqlDataRevsMap.get(cellValue);
     }
 
     private Map<String, Object> populateMappedSqlData(DatabaseColumn dbColumn) {
@@ -401,6 +422,30 @@ public class ExcelDataReader {
 	    }
 	}
 	return strCellValue;
+    }
+
+    private static String[] cleanNewLine(String[] fields) {
+	String[] newFields = new String[fields.length];
+	int i = 0;
+	for (String field : fields) {
+	    if (field != null)
+		newFields[i] = field.replace("\r\n", "$NL$");
+	    i++;
+	}
+	return newFields;
+    }
+
+    protected void readCSVWithApacheCommons(String dataFile) {
+
+	try {
+	    Reader in = new FileReader(dataFile);
+	    Iterable<CSVRecord> records = CSVFormat.DEFAULT.withHeader(new String[] { "" }).withDelimiter('|')
+		    .withEscape('\\').withFirstRecordAsHeader().parse(in);
+	} catch (IOException e) {
+	    // TODO Auto-generated catch block
+	    e.printStackTrace();
+	}
+
     }
 
 }

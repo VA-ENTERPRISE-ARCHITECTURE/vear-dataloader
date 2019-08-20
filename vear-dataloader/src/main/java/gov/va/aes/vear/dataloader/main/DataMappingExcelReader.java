@@ -46,11 +46,18 @@ public class DataMappingExcelReader {
 		Boolean isExcelColumnDataCleanup = cellIterator.next().getBooleanCellValue();
 		double columnSizeCellValue = cellIterator.next().getNumericCellValue();
 		int columnSize = columnSizeCellValue == 0 ? 0 : Integer.valueOf((int) columnSizeCellValue);
-		String mappedTableName = cellIterator.next().getStringCellValue();
-		mappedTableName = mappedTableName != null ? mappedTableName.trim() : null;
-		String mappedKeyColumn = cellIterator.next().getStringCellValue();
-		String mappedValueColumn = cellIterator.next().getStringCellValue();
-		String mappedFilter = cellIterator.next().getStringCellValue();
+		String mappedTableName = null;
+		String mappedKeyColumn = null;
+		String mappedValueColumn = null;
+		String mappedFilter = null;
+		if (tableColDataType.equals("MAPPED")) {
+		    mappedTableName = cellIterator.next().getStringCellValue();
+		    mappedTableName = mappedTableName != null ? mappedTableName.trim() : null;
+		    mappedKeyColumn = cellIterator.next().getStringCellValue();
+		    mappedValueColumn = cellIterator.next().getStringCellValue();
+		    mappedFilter = cellIterator.next().getStringCellValue();
+		    mappedFilter = mappedFilter != null ? mappedFilter.trim() : null;
+		}
 		TableAndColumnMappingInfo tableAndColumnMappingInfo = result.get(tablename);
 		if (tableAndColumnMappingInfo == null) {
 		    tableAndColumnMappingInfo = new TableAndColumnMappingInfo();

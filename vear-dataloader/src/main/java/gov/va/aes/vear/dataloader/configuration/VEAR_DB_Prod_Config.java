@@ -2,6 +2,8 @@ package gov.va.aes.vear.dataloader.configuration;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
@@ -24,7 +26,8 @@ public class VEAR_DB_Prod_Config {
 
     Map<String, ProjectConfig> _projectConfigMap;
 
-    // TODO remove
+    private static final Logger LOG = Logger.getLogger(VEAR_DB_Prod_Config.class.getName());
+
     @PostConstruct
     public void init() {
 	_projectConfigMap = new HashMap<>();
@@ -59,9 +62,12 @@ public class VEAR_DB_Prod_Config {
 	DriverManagerDataSource dataSource = new DriverManagerDataSource();
 
 	dataSource.setDriverClassName("oracle.jdbc.driver.OracleDriver");
-	dataSource.setUrl(env.getRequiredProperty("vear.datasource.url"));
-	dataSource.setUsername(env.getRequiredProperty("vear.datasource.username"));
+	String dbUrl = env.getRequiredProperty("vear.datasource.url");
+	dataSource.setUrl(dbUrl);
+	String dbUserName = env.getRequiredProperty("vear.datasource.username");
+	dataSource.setUsername(dbUserName);
 	dataSource.setPassword(env.getRequiredProperty("vear.datasource.password"));
+	LOG.log(Level.INFO, "Database Connection Info - URL:" + dbUrl + " User name: " + dbUserName);
 	return dataSource;
     }
 

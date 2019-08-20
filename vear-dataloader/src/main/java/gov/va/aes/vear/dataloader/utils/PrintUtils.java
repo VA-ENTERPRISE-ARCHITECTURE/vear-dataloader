@@ -20,7 +20,8 @@ public final class PrintUtils {
 	    int recordsUpdateCount, int recordsInsertCount, int recordsMatchCount,
 	    List<Map<String, Object>> recordsUpdated, List<Map<String, Object>> diffRecords,
 	    List<Map<String, Object>> recordsInserted, List<Map<String, Object>> recordsFailingUpdate,
-	    List<Map<String, Object>> recordsFailingInsert, List<Map<String, Object>> dbRecordsNotFound) {
+	    List<Map<String, Object>> recordsFailingInsert, List<Map<String, Object>> dbRecordsNotFound,
+	    List<Map<String, Object>> recordsInvalid) {
 	LOG.log(Level.INFO, "");
 	LOG.log(Level.INFO, "Project Name: " + projectName);
 	LOG.log(Level.INFO, "==========");
@@ -46,12 +47,15 @@ public final class PrintUtils {
 	LOG.log(Level.INFO, "Processed " + recordsUpdated.size() + " Update records without errors");
 	LOG.log(Level.INFO, "ETL Records in Sync with VEAR = " + recordsMatchCount);
 
-	if (recordsFailingUpdate.size() > 0 || recordsFailingInsert.size() > 0) {
+	if (recordsFailingUpdate.size() > 0 || recordsFailingInsert.size() > 0 || recordsInvalid.size() > 0) {
 	    if (recordsFailingUpdate.size() > 0) {
 		LOG.log(Level.INFO, "Failed to Update " + recordsFailingUpdate.size() + " records");
 	    }
 	    if (recordsFailingInsert.size() > 0) {
 		LOG.log(Level.INFO, "Failed to Insert " + recordsFailingInsert.size() + " records");
+	    }
+	    if (recordsInvalid.size() > 0) {
+		LOG.log(Level.INFO, "Records that are invalid in Source File " + recordsInvalid.size() + " records");
 	    }
 	}
 	LOG.log(Level.INFO, "VEAR DB Records Flagged for Deletion = " + dbRecordsNotFound.size());
